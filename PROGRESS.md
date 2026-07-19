@@ -50,6 +50,22 @@
 
 *(newest first — every session gets a line, even the scrappy ones)*
 
+- **2026-07-19 (session 3, part 2) — the Gallery is LIVE: all 91 shitposts on
+  one page. 🖼️** Applied the lifecycles rule to buckets: disposable
+  DESTROY+autoDeleteObjects shell bucket for the page, vault stays RETAIN; one
+  door, two rooms (default → shell, `media/*` → vault — why we prefixed media/).
+  TDD (4 red → 20/20 green); two more over-pinned tests diagnosed on sight and
+  refactored (Lambda count, single-origin array) — the badge test now demands
+  OAC on *every* origin. BucketDeployment ships index.html + manifest.json and
+  invalidates both paths each deploy (Q2's cache lesson, automated). Verified:
+  `/` 200 html, `/manifest.json` 200 with 91 keys, `/media/*` 200 png.
+  Taught: WAF (the bouncer: managed rules, rate-based rules = system-wide rate
+  limiting at the edge, us-east-1 quirk, real cost — hence Quest 3 not now) and
+  the defence-in-depth ladder (WAF/CloudFront ✓/Cognito/IAM ✓/KMS). CORS not
+  needed today — same origin; fires for real at Quest 2. manifest.json is
+  admitted tech debt, repaid by Quest 2's API. Remaining for Quest 1.5:
+  checkpoint.
+
 - **2026-07-19 (session 3) — the Vault Door opens: first light on the hoard. 🚪**
   CloudFront + OAC over the sealed vault, TDD'd (4 red → 16/16 green: HTTPS-only
   door, OAC-not-OAI, bucket policy pinned to our distribution ARN, GalleryUrl
