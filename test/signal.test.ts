@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Match, Template } from 'aws-cdk-lib/assertions';
 import { SignalStack } from '../lib/signal-stack';
 
 const synthesize = () => {
@@ -65,14 +65,14 @@ test('refuses unencrypted transport to the vault', () => {
 
   template.hasResourceProperties('AWS::S3::BucketPolicy', {
     PolicyDocument: {
-      Statement: [
-        {
+      Statement: Match.arrayWith([
+        Match.objectLike({
           Effect: 'Deny',
           Action: 's3:*',
           Principal: { AWS: '*' },
           Condition: { Bool: { 'aws:SecureTransport': 'false' } },
-        },
-      ],
+        }),
+      ]),
     },
   });
 });
@@ -127,5 +127,54 @@ test('publishes the catalogue table name for the coming API', () => {
   const template = synthesize();
 
   const outputs = template.findOutputs('CatalogueTableName');
+  expect(Object.keys(outputs)).toHaveLength(1);
+});
+
+test('the vault door serves the hoard over HTTPS only', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::CloudFront::Distribution', {
+    DistributionConfig: {
+      DefaultCacheBehavior: {
+        ViewerProtocolPolicy: 'https-only',
+      },
+    },
+  });
+});
+
+test('the courier wears the modern badge: OAC, not legacy OAI', () => {
+  const template = synthesize();
+
+  template.resourceCountIs('AWS::CloudFront::OriginAccessControl', 1);
+  template.hasResourceProperties('AWS::CloudFront::Distribution', {
+    DistributionConfig: {
+      Origins: [Match.objectLike({ OriginAccessControlId: Match.anyValue() })],
+    },
+  });
+});
+
+test('the loading dock admits only our own distribution', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::S3::BucketPolicy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Effect: 'Allow',
+          Principal: { Service: 'cloudfront.amazonaws.com' },
+          Action: 's3:GetObject',
+          Condition: {
+            StringEquals: { 'AWS:SourceArn': Match.anyValue() },
+          },
+        }),
+      ]),
+    },
+  });
+});
+
+test('publishes the gallery URL for browsing the hoard', () => {
+  const template = synthesize();
+
+  const outputs = template.findOutputs('GalleryUrl');
   expect(Object.keys(outputs)).toHaveLength(1);
 });

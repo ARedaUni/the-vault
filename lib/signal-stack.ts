@@ -1,4 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -43,6 +45,19 @@ export class SignalStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'MediaBucketName', {
       value: mediaBucket.bucketName,
       description: 'Quest 1 — the vault: aws s3 sync the hoard here',
+    });
+
+    const gallery = new cloudfront.Distribution(this, 'GalleryDistribution', {
+      defaultBehavior: {
+        origin: S3BucketOrigin.withOriginAccessControl(mediaBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+      },
+    });
+
+    new cdk.CfnOutput(this, 'GalleryUrl', {
+      value: `https://${gallery.distributionDomainName}`,
+      description: 'Quest 1.5 — the vault door: append /media/<key>',
     });
 
     const catalogueTable = new dynamodb.Table(this, 'CatalogueTable', {

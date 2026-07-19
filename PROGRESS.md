@@ -50,6 +50,21 @@
 
 *(newest first — every session gets a line, even the scrappy ones)*
 
+- **2026-07-19 (session 3) — the Vault Door opens: first light on the hoard. 🚪**
+  CloudFront + OAC over the sealed vault, TDD'd (4 red → 16/16 green: HTTPS-only
+  door, OAC-not-OAI, bucket policy pinned to our distribution ARN, GalleryUrl
+  output). Casualty on the way: Quest 1's TLS test was *over-pinned* (asserted
+  the whole Statement array) and broke when OAC legitimately appended its allow —
+  refactored to `Match.arrayWith`; behaviour-not-implementation applies to infra
+  tests too. Deployed in 201s (edge propagation is the slow part), then proved
+  all three beats: 200 via the door, 403 on raw S3 for the same object, and
+  `x-cache: Miss` → `Hit` on back-to-back requests. Gotcha logged: object keys
+  with spaces need percent-encoding — gallery UI must `encodeURIComponent`.
+  Taught: OAC = badge + guest list + pin; identity-based vs resource-based
+  policies; the entrance map (humans → Identity Center, AWS services → badge +
+  guest list, your code → execution role). Remaining for Quest 1.5: gallery UI,
+  CORS, checkpoint.
+
 - **2026-07-19 (session 2, addendum) — Quest 1 checkpoint PASSED (+200 XP).**
   Defended: the Scan trap (signals for one shitpost aren't co-located → no
   nameable drawer), hot partitions (one PK = one drawer = one machine's ~3k/s
@@ -102,6 +117,19 @@
 
 ## 🧠 Learnings
 
+- **CloudFront is a chain of newspaper kiosks.** The origin is one sealed
+  warehouse; ~600 edge kiosks keep shelf copies governed by TTL — S3 never
+  notifies CloudFront of changes (five minutes after an overwrite you still get
+  the old cat). Fresh content = invalidation (emergency lever) or versioned/
+  hashed filenames (the strategy). OAC is the loading dock: CloudFront signs
+  requests as `cloudfront.amazonaws.com` (badge), a resource-based bucket
+  policy admits it (guest list), and an `AWS:SourceArn` condition pins it to
+  *our* distribution (delivery number) — the bucket stays `BLOCK_ALL` throughout.
+- **The entrance map — three credential paths, one guard.** Humans enter via
+  Identity Center (temporary costume); AWS services acting as themselves enter
+  via service principal + resource policy (badge + guest list, e.g. OAC); your
+  own code enters via an execution role (tailored costume, trust policy names
+  the service). Every path converges on the same IAM evaluation engine.
 - **DynamoDB is WhatsApp chats.** PK = which chat, SK = position within it
   (timestamp-prefixed SKs make every chat a free timeline). Query = open one
   named chat (fast at any scale); Scan = search every message in every chat.
