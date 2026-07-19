@@ -12,8 +12,8 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 0 / 1900
-- **Current quest:** Quest 0 — First Contact
+- **XP:** 100 / 1900
+- **Current quest:** Quest 1 — The Hoard
 
 ## 📜 Rules of the Realm
 
@@ -33,8 +33,8 @@
 
 | Quest | Name | Covers | XP | Status |
 |-------|------|--------|----|--------|
-| 0 | **First Contact** | CDK, deploy loop, Lambda Function URL | 100 | 🔵 In progress |
-| 1 | **The Hoard** | S3 media bucket, bulk upload, DynamoDB catalogue | 200 | ⚪ |
+| 0 | **First Contact** | CDK, deploy loop, Lambda Function URL | 100 | ✅ 2026-07-19 |
+| 1 | **The Hoard** | S3 media bucket, bulk upload, DynamoDB catalogue | 200 | 🔵 In progress |
 | 1.5 | **The Vault Door** | Gallery UI, CloudFront, OAC, CORS | 100 | ⚪ |
 | 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | ⚪ |
 | 3 | **The Fortress** | IAM least-privilege, KMS, Cognito, cdk-nag | 300 | ⚪ |
@@ -50,6 +50,15 @@
 
 *(newest first — every session gets a line, even the scrappy ones)*
 
+- **2026-07-19 — Quest 0 checkpoint passed (+100 XP); Quest 1 begun: the Vault
+  exists.** TDD'd the media bucket (4 red assertion tests → green: Block Public
+  Access, TLS-only bucket policy, RETAIN so the hoard survives destroy),
+  `cdk diff` reviewed, deployed in 33s, then `aws s3 sync`ed the collection:
+  **91 shitposts / 16.4MB in the vault**, verified by listing. Concepts today:
+  SSO identity flow (roles-as-costumes), policy vs role, L1/L2/L3 constructs,
+  how real CDK apps scale (studied bedrock-chat: custom constructs as L3s,
+  stateful/stateless stack splits). Next: DynamoDB catalogue.
+
 - **2026-07-18 — Quest 0 shipped. 🛰️ Signal is ONLINE.** Bootstrapped
   TheWeeDonkey, deployed SignalStack (Lambda + public function URL), curled it:
   `{"service":"signal","status":"online","quest":0}`. Fought a real production
@@ -64,6 +73,15 @@
   (The Vault + The Algorithm; see roadmap).
 
 ## 🧠 Learnings
+
+- **Infra tests: driving vs pinning.** Some assertions force code into the
+  template (Block Public Access — CDK omits it otherwise); others pin a
+  default so it can't silently change under a CDK/AWS upgrade (RETAIN).
+  Both legit, different jobs. Don't assert construction trivia.
+- **Role = assumable identity ("who"); policy = permission document
+  ("may they"). ** Every role has a trust policy (who can wear it) plus
+  permission policies (what it can do). Member accounts have no passwords —
+  identity lives in Identity Center, access is a borrowed costume via STS.
 
 - **Since Oct 2025, public Lambda function URLs need TWO permissions:**
   `lambda:InvokeFunctionUrl` AND `lambda:InvokeFunction` (with

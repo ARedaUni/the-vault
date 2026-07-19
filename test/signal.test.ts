@@ -38,3 +38,48 @@ test('exposes the URL as a stack output', () => {
   const outputs = template.findOutputs('SignalUrl');
   expect(Object.keys(outputs)).toHaveLength(1);
 });
+
+test('keeps the media vault sealed against all public access', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::S3::Bucket', {
+    PublicAccessBlockConfiguration: {
+      BlockPublicAcls: true,
+      BlockPublicPolicy: true,
+      IgnorePublicAcls: true,
+      RestrictPublicBuckets: true,
+    },
+  });
+});
+
+test('refuses unencrypted transport to the vault', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::S3::BucketPolicy', {
+    PolicyDocument: {
+      Statement: [
+        {
+          Effect: 'Deny',
+          Action: 's3:*',
+          Principal: { AWS: '*' },
+          Condition: { Bool: { 'aws:SecureTransport': 'false' } },
+        },
+      ],
+    },
+  });
+});
+
+test('the hoard survives stack deletion', () => {
+  const template = synthesize();
+
+  template.hasResource('AWS::S3::Bucket', {
+    DeletionPolicy: 'Retain',
+  });
+});
+
+test('publishes the vault bucket name for uploads', () => {
+  const template = synthesize();
+
+  const outputs = template.findOutputs('MediaBucketName');
+  expect(Object.keys(outputs)).toHaveLength(1);
+});
