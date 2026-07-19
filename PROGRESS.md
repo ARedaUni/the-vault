@@ -50,6 +50,19 @@
 
 *(newest first — every session gets a line, even the scrappy ones)*
 
+- **2026-07-19 (session 2) — the Catalogue is live: DynamoDB joins the party.**
+  Learned single-table design from scratch (WhatsApp-chats mental model: PK
+  picks the chat, SK is the order inside it, Query opens one chat, Scan trawls
+  every chat on the phone). Designed the table access-patterns-first — six
+  patterns, generic `PK`/`SK` entity-prefixed keys so *any* signal kind is
+  plug-and-play. TDD'd it (4 red → 11/11 green: key schema, PAY_PER_REQUEST,
+  RETAIN pin, output), deployed in 21s, then proved the design from the CLI:
+  wrote a VIEW + a REACT signal into `USER#ali`'s drawer and queried them back
+  newest-first with `begins_with(SK, 'SIGNAL#')`. Security review: table is
+  default-deny private; first real grant arrives with Quest 2's Lambda.
+  Next: Quest 1 checkpoint (hot partitions, GSI vs filter), then metadata
+  backfill for the 91 memes.
+
 - **2026-07-19 — Quest 0 checkpoint passed (+100 XP); Quest 1 begun: the Vault
   exists.** TDD'd the media bucket (4 red assertion tests → green: Block Public
   Access, TLS-only bucket policy, RETAIN so the hoard survives destroy),
@@ -74,6 +87,18 @@
 
 ## 🧠 Learnings
 
+- **DynamoDB is WhatsApp chats.** PK = which chat, SK = position within it
+  (timestamp-prefixed SKs make every chat a free timeline). Query = open one
+  named chat (fast at any scale); Scan = search every message in every chat.
+  A question is only fast if some drawer is already organised around it —
+  hence access-patterns-first design. Attributes are schemaless per item
+  (only keys are enforced), which is what makes new signal kinds plug-and-play.
+- **DynamoDB is private by default — there is no public mode to switch off.**
+  Only signed IAM-evaluated API calls reach it; default-deny does the rest.
+  Security work starts when the first non-human consumer appears
+  (`table.grantReadWriteData(fn)` = least privilege derived from the object
+  graph). Defer security decisions to the last responsible moment — and know
+  when that moment is (Quest 2).
 - **Infra tests: driving vs pinning.** Some assertions force code into the
   template (Block Public Access — CDK omits it otherwise); others pin a
   default so it can't silently change under a CDK/AWS upgrade (RETAIN).

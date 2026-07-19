@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
@@ -37,6 +38,18 @@ export class SignalStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'MediaBucketName', {
       value: mediaBucket.bucketName,
       description: 'Quest 1 — the vault: aws s3 sync the hoard here',
+    });
+
+    const catalogueTable = new dynamodb.Table(this, 'CatalogueTable', {
+      partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    new cdk.CfnOutput(this, 'CatalogueTableName', {
+      value: catalogueTable.tableName,
+      description: 'Quest 1 — the catalogue: meme metadata + signals',
     });
   }
 }
