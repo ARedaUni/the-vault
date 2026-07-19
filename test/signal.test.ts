@@ -39,6 +39,14 @@ test('exposes the URL as a stack output', () => {
   expect(Object.keys(outputs)).toHaveLength(1);
 });
 
+test('log output expires instead of accruing cost forever', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Logs::LogGroup', {
+    RetentionInDays: 30,
+  });
+});
+
 test('keeps the media vault sealed against all public access', () => {
   const template = synthesize();
 

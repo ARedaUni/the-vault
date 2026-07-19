@@ -60,8 +60,13 @@
   wrote a VIEW + a REACT signal into `USER#ali`'s drawer and queried them back
   newest-first with `begins_with(SK, 'SIGNAL#')`. Security review: table is
   default-deny private; first real grant arrives with Quest 2's Lambda.
+  Bonus round: studied bedrock-chat's frontend construct (OAC one-liner, SPA
+  error rewrites, DESTROY-able asset bucket = removal policy tracks
+  *replaceability*), met CDK Aspects via their log-retention checker — then
+  applied the lesson: TDD'd 30-day log retention onto HelloFunction
+  (12/12 green), deployed, deleted the orphaned 731-day log group.
   Next: Quest 1 checkpoint (hot partitions, GSI vs filter), then metadata
-  backfill for the 91 memes.
+  backfill for the 91 shitposts.
 
 - **2026-07-19 — Quest 0 checkpoint passed (+100 XP); Quest 1 begun: the Vault
   exists.** TDD'd the media bucket (4 red assertion tests → green: Block Public
