@@ -5,6 +5,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
 
 export class SignalStack extends cdk.Stack {
@@ -47,12 +48,34 @@ export class SignalStack extends cdk.Stack {
       description: 'Quest 1 — the vault: aws s3 sync the hoard here',
     });
 
+    const galleryShell = new s3.Bucket(this, 'GalleryShellBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
     const gallery = new cloudfront.Distribution(this, 'GalleryDistribution', {
+      defaultRootObject: 'index.html',
       defaultBehavior: {
-        origin: S3BucketOrigin.withOriginAccessControl(mediaBucket),
+        origin: S3BucketOrigin.withOriginAccessControl(galleryShell),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
+      additionalBehaviors: {
+        'media/*': {
+          origin: S3BucketOrigin.withOriginAccessControl(mediaBucket),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+          cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        },
+      },
+    });
+
+    new s3deploy.BucketDeployment(this, 'GalleryPageDeployment', {
+      sources: [s3deploy.Source.asset('./frontend')],
+      destinationBucket: galleryShell,
+      distribution: gallery,
+      distributionPaths: ['/index.html', '/manifest.json'],
     });
 
     new cdk.CfnOutput(this, 'GalleryUrl', {

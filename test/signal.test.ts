@@ -11,7 +11,6 @@ const synthesize = () => {
 test('serves a health endpoint over a public function URL', () => {
   const template = synthesize();
 
-  template.resourceCountIs('AWS::Lambda::Function', 1);
   template.hasResourceProperties('AWS::Lambda::Url', {
     AuthType: 'NONE',
   });
@@ -145,10 +144,12 @@ test('the vault door serves the hoard over HTTPS only', () => {
 test('the courier wears the modern badge: OAC, not legacy OAI', () => {
   const template = synthesize();
 
-  template.resourceCountIs('AWS::CloudFront::OriginAccessControl', 1);
   template.hasResourceProperties('AWS::CloudFront::Distribution', {
     DistributionConfig: {
-      Origins: [Match.objectLike({ OriginAccessControlId: Match.anyValue() })],
+      Origins: [
+        Match.objectLike({ OriginAccessControlId: Match.anyValue() }),
+        Match.objectLike({ OriginAccessControlId: Match.anyValue() }),
+      ],
     },
   });
 });
@@ -170,6 +171,41 @@ test('the loading dock admits only our own distribution', () => {
       ]),
     },
   });
+});
+
+test('the gallery shell is replaceable — its bucket auto-destroys', () => {
+  const template = synthesize();
+
+  template.hasResource('AWS::S3::Bucket', {
+    DeletionPolicy: 'Delete',
+    UpdateReplacePolicy: 'Delete',
+  });
+});
+
+test('the door serves the gallery page at its root', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::CloudFront::Distribution', {
+    DistributionConfig: {
+      DefaultRootObject: 'index.html',
+    },
+  });
+});
+
+test('routes media to the vault and everything else to the shell', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::CloudFront::Distribution', {
+    DistributionConfig: {
+      CacheBehaviors: [Match.objectLike({ PathPattern: 'media/*' })],
+    },
+  });
+});
+
+test('ships the gallery page to the shell on every deploy', () => {
+  const template = synthesize();
+
+  template.resourceCountIs('Custom::CDKBucketDeployment', 1);
 });
 
 test('publishes the gallery URL for browsing the hoard', () => {

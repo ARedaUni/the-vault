@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Vault</title>
+<style>
+  body { margin: 0; background: #111; color: #eee; font-family: system-ui, sans-serif; }
+  h1 { padding: 1rem 1.5rem; margin: 0; font-size: 1.4rem; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; padding: 0 1.5rem 1.5rem; }
+  #grid img, #grid video { width: 100%; height: 220px; object-fit: cover; border-radius: 6px; display: block; background: #222; }
+</style>
+</head>
+<body>
+<h1>🔐 The Vault — <span id="count">…</span> shitposts</h1>
+<div id="grid"></div>
+<script>
+  const VIDEO = /\.(mp4|webm|mov)$/i;
+
+  const toUrl = (key) => '/' + key.split('/').map(encodeURIComponent).join('/');
+
+  const toTile = (key) =>
+    VIDEO.test(key)
+      ? Object.assign(document.createElement('video'), { src: toUrl(key), controls: true, muted: true, preload: 'metadata' })
+      : Object.assign(document.createElement('img'), { src: toUrl(key), loading: 'lazy', alt: key });
+
+  fetch('/manifest.json')
+    .then((res) => res.json())
+    .then((keys) => {
+      document.getElementById('count').textContent = keys.length;
+      document.getElementById('grid').append(...keys.map(toTile));
+    });
+</script>
+</body>
+</html>
