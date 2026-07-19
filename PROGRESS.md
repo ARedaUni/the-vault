@@ -12,8 +12,8 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 100 / 1900
-- **Current quest:** Quest 1 — The Hoard
+- **XP:** 300 / 1900
+- **Current quest:** Quest 1.5 — The Vault Door
 
 ## 📜 Rules of the Realm
 
@@ -34,8 +34,8 @@
 | Quest | Name | Covers | XP | Status |
 |-------|------|--------|----|--------|
 | 0 | **First Contact** | CDK, deploy loop, Lambda Function URL | 100 | ✅ 2026-07-19 |
-| 1 | **The Hoard** | S3 media bucket, bulk upload, DynamoDB catalogue | 200 | 🔵 In progress |
-| 1.5 | **The Vault Door** | Gallery UI, CloudFront, OAC, CORS | 100 | ⚪ |
+| 1 | **The Hoard** | S3 media bucket, bulk upload, DynamoDB catalogue | 200 | ✅ 2026-07-19 |
+| 1.5 | **The Vault Door** | Gallery UI, CloudFront, OAC, CORS | 100 | 🔵 Next |
 | 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | ⚪ |
 | 3 | **The Fortress** | IAM least-privilege, KMS, Cognito, cdk-nag | 300 | ⚪ |
 | 4 | **The Watchtower** | Structured logs, EMF metrics, alarms, dashboards | 200 | ⚪ |
@@ -49,6 +49,16 @@
 ## 🚢 Ship Log
 
 *(newest first — every session gets a line, even the scrappy ones)*
+
+- **2026-07-19 (session 2, addendum) — Quest 1 checkpoint PASSED (+200 XP).**
+  Defended: the Scan trap (signals for one shitpost aren't co-located → no
+  nameable drawer), hot partitions (one PK = one drawer = one machine's ~3k/s
+  ceiling; fix = shard the key `SHITPOST#0..9`, query in parallel, merge), and
+  the judgement call: **filters tune a query you have; GSIs create a query
+  you don't; separate tables separate lifecycles** (TTL, removal policy,
+  backups, IAM are *table-level* — data needing different settings needs a
+  different table). Quest 1 ✅. Metadata backfill rolls into next session
+  alongside the DocumentClient/marshalling lesson.
 
 - **2026-07-19 (session 2) — the Catalogue is live: DynamoDB joins the party.**
   Learned single-table design from scratch (WhatsApp-chats mental model: PK
