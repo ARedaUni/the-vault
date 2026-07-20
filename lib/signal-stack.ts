@@ -78,7 +78,7 @@ export class SignalStack extends cdk.Stack {
       sources: [s3deploy.Source.asset('./frontend')],
       destinationBucket: galleryShell,
       distribution: gallery,
-      distributionPaths: ['/index.html', '/manifest.json'],
+      distributionPaths: ['/index.html'],
     });
 
     new cdk.CfnOutput(this, 'GalleryUrl', {

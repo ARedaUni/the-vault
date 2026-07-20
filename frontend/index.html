@@ -24,11 +24,13 @@
       ? Object.assign(document.createElement('video'), { src: toUrl(key), controls: true, muted: true, preload: 'metadata' })
       : Object.assign(document.createElement('img'), { src: toUrl(key), loading: 'lazy', alt: key });
 
-  fetch('/manifest.json')
+  const API_URL = 'https://iv2saq46m9.execute-api.eu-west-2.amazonaws.com';
+
+  fetch(API_URL + '/shitposts')
     .then((res) => res.json())
-    .then((keys) => {
-      document.getElementById('count').textContent = keys.length;
-      document.getElementById('grid').append(...keys.map(toTile));
+    .then(({ shitposts }) => {
+      document.getElementById('count').textContent = shitposts.length;
+      document.getElementById('grid').append(...shitposts.map((s) => toTile(s.shitpostKey)));
     });
 </script>
 </body>
