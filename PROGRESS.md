@@ -12,8 +12,8 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 300 / 1900
-- **Current quest:** Quest 1.5 — The Vault Door
+- **XP:** 400 / 1900
+- **Current quest:** Quest 2 — The Gateway
 
 ## 📜 Rules of the Realm
 
@@ -35,8 +35,8 @@
 |-------|------|--------|----|--------|
 | 0 | **First Contact** | CDK, deploy loop, Lambda Function URL | 100 | ✅ 2026-07-19 |
 | 1 | **The Hoard** | S3 media bucket, bulk upload, DynamoDB catalogue | 200 | ✅ 2026-07-19 |
-| 1.5 | **The Vault Door** | Gallery UI, CloudFront, OAC, CORS | 100 | 🔵 Next |
-| 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | ⚪ |
+| 1.5 | **The Vault Door** | Gallery UI, CloudFront, OAC, CORS | 100 | ✅ 2026-07-20 |
+| 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | 🔵 Next |
 | 3 | **The Fortress** | IAM least-privilege, KMS, Cognito, cdk-nag | 300 | ⚪ |
 | 4 | **The Watchtower** | Structured logs, EMF metrics, alarms, dashboards | 200 | ⚪ |
 | 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ⚪ |
@@ -49,6 +49,16 @@
 ## 🚢 Ship Log
 
 *(newest first — every session gets a line, even the scrappy ones)*
+
+- **2026-07-20 (session 3, addendum) — Quest 1.5 checkpoint PASSED (+100 XP).**
+  First round was rough (two reds: claimed both buckets RETAIN; reached for
+  lower-TTL instead of invalidation/rename) — every miss taught, then a
+  redemption round swept 3/3: destroy-behaviour per bucket with the
+  replaceability rule, invalidation-now vs exclusive-IDs-forever, and the
+  badge/pin distinction (SourceArn pins the *distribution* ARN — which embeds
+  the account). Also nailed first try: CORS wasn't needed because everything
+  is same-origin; it fires when Quest 2's API lands on its own domain — and
+  CORS is enforced by the browser, the server merely consents. Quest 1.5 ✅.
 
 - **2026-07-19 (session 3, part 2) — the Gallery is LIVE: all 91 shitposts on
   one page. 🖼️** Applied the lifecycles rule to buckets: disposable
