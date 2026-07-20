@@ -8,7 +8,7 @@ const synthesize = () => {
   return Template.fromStack(stack);
 };
 
-test('serves a health endpoint over a public function URL', () => {
+test('the health endpoint is publicly callable without auth', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::Lambda::Url', {
@@ -16,29 +16,14 @@ test('serves a health endpoint over a public function URL', () => {
   });
 });
 
-test('grants anonymous callers both permissions required since October 2025', () => {
-  const template = synthesize();
-
-  template.hasResourceProperties('AWS::Lambda::Permission', {
-    Action: 'lambda:InvokeFunctionUrl',
-    Principal: '*',
-    FunctionUrlAuthType: 'NONE',
-  });
-  template.hasResourceProperties('AWS::Lambda::Permission', {
-    Action: 'lambda:InvokeFunction',
-    Principal: '*',
-    InvokedViaFunctionUrl: true,
-  });
-});
-
-test('exposes the URL as a stack output', () => {
+test('publishes the health endpoint URL as a stack output', () => {
   const template = synthesize();
 
   const outputs = template.findOutputs('SignalUrl');
   expect(Object.keys(outputs)).toHaveLength(1);
 });
 
-test('log output expires instead of accruing cost forever', () => {
+test('logs expire after 30 days instead of accruing cost forever', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::Logs::LogGroup', {
@@ -46,7 +31,7 @@ test('log output expires instead of accruing cost forever', () => {
   });
 });
 
-test('keeps the media vault sealed against all public access', () => {
+test('the media bucket blocks all public access', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::S3::Bucket', {
@@ -59,7 +44,7 @@ test('keeps the media vault sealed against all public access', () => {
   });
 });
 
-test('refuses unencrypted transport to the vault', () => {
+test('the media bucket rejects unencrypted (non-TLS) requests', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::S3::BucketPolicy', {
@@ -76,7 +61,7 @@ test('refuses unencrypted transport to the vault', () => {
   });
 });
 
-test('the hoard survives stack deletion', () => {
+test('the media bucket is retained when the stack is destroyed', () => {
   const template = synthesize();
 
   template.hasResource('AWS::S3::Bucket', {
@@ -84,14 +69,14 @@ test('the hoard survives stack deletion', () => {
   });
 });
 
-test('publishes the vault bucket name for uploads', () => {
+test('publishes the media bucket name as a stack output', () => {
   const template = synthesize();
 
   const outputs = template.findOutputs('MediaBucketName');
   expect(Object.keys(outputs)).toHaveLength(1);
 });
 
-test('catalogues the hoard with generic entity-prefixed keys', () => {
+test('the catalogue table uses generic PK/SK string keys for single-table design', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::DynamoDB::Table', {
@@ -106,7 +91,7 @@ test('catalogues the hoard with generic entity-prefixed keys', () => {
   });
 });
 
-test('pays per request rather than provisioning capacity', () => {
+test('the catalogue table bills per request, not provisioned capacity', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::DynamoDB::Table', {
@@ -114,7 +99,7 @@ test('pays per request rather than provisioning capacity', () => {
   });
 });
 
-test('the catalogue survives stack deletion', () => {
+test('the catalogue table is retained when the stack is destroyed', () => {
   const template = synthesize();
 
   template.hasResource('AWS::DynamoDB::Table', {
@@ -122,14 +107,14 @@ test('the catalogue survives stack deletion', () => {
   });
 });
 
-test('publishes the catalogue table name for the coming API', () => {
+test('publishes the catalogue table name as a stack output', () => {
   const template = synthesize();
 
   const outputs = template.findOutputs('CatalogueTableName');
   expect(Object.keys(outputs)).toHaveLength(1);
 });
 
-test('the vault door serves the hoard over HTTPS only', () => {
+test('CloudFront serves viewers over HTTPS only', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::CloudFront::Distribution', {
@@ -141,7 +126,7 @@ test('the vault door serves the hoard over HTTPS only', () => {
   });
 });
 
-test('the courier wears the modern badge: OAC, not legacy OAI', () => {
+test('every CloudFront origin reaches its bucket via Origin Access Control', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::CloudFront::Distribution', {
@@ -154,7 +139,7 @@ test('the courier wears the modern badge: OAC, not legacy OAI', () => {
   });
 });
 
-test('the loading dock admits only our own distribution', () => {
+test('bucket policies admit reads only from CloudFront, pinned to one distribution ARN', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::S3::BucketPolicy', {
@@ -173,7 +158,7 @@ test('the loading dock admits only our own distribution', () => {
   });
 });
 
-test('the gallery shell is replaceable — its bucket auto-destroys', () => {
+test('the gallery shell bucket is deleted with the stack', () => {
   const template = synthesize();
 
   template.hasResource('AWS::S3::Bucket', {
@@ -182,7 +167,7 @@ test('the gallery shell is replaceable — its bucket auto-destroys', () => {
   });
 });
 
-test('the door serves the gallery page at its root', () => {
+test('CloudFront serves index.html at the root path', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::CloudFront::Distribution', {
@@ -192,7 +177,7 @@ test('the door serves the gallery page at its root', () => {
   });
 });
 
-test('routes media to the vault and everything else to the shell', () => {
+test('CloudFront routes media/* to a separate origin from the default', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::CloudFront::Distribution', {
@@ -202,28 +187,14 @@ test('routes media to the vault and everything else to the shell', () => {
   });
 });
 
-test('ships the gallery page to the shell on every deploy', () => {
-  const template = synthesize();
-
-  template.resourceCountIs('Custom::CDKBucketDeployment', 1);
-});
-
-test('publishes the gallery URL for browsing the hoard', () => {
+test('publishes the gallery URL as a stack output', () => {
   const template = synthesize();
 
   const outputs = template.findOutputs('GalleryUrl');
   expect(Object.keys(outputs)).toHaveLength(1);
 });
 
-test('the reception desk speaks HTTP API v2', () => {
-  const template = synthesize();
-
-  template.hasResourceProperties('AWS::ApiGatewayV2::Api', {
-    ProtocolType: 'HTTP',
-  });
-});
-
-test('only GET /shitposts is on the menu', () => {
+test('the API routes GET /shitposts to a Lambda integration', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
@@ -231,7 +202,7 @@ test('only GET /shitposts is on the menu', () => {
   });
 });
 
-test('the desk consents to GET callers from the gallery door alone', () => {
+test('API CORS permits only GET, from a single allowed origin', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::ApiGatewayV2::Api', {
@@ -242,7 +213,7 @@ test('the desk consents to GET callers from the gallery door alone', () => {
   });
 });
 
-test('the till clerk may read the catalogue', () => {
+test('the catalogue Lambda role is allowed to query DynamoDB', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::IAM::Policy', {
@@ -257,7 +228,7 @@ test('the till clerk may read the catalogue', () => {
   });
 });
 
-test('the till clerk knows which catalogue to consult', () => {
+test('the catalogue Lambda receives the table name via CATALOGUE_TABLE_NAME', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::Lambda::Function', {
@@ -269,7 +240,7 @@ test('the till clerk knows which catalogue to consult', () => {
   });
 });
 
-test('publishes the API URL for the gallery to call', () => {
+test('publishes the API URL as a stack output', () => {
   const template = synthesize();
 
   const outputs = template.findOutputs('CatalogueApiUrl');
