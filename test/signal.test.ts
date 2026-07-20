@@ -214,3 +214,64 @@ test('publishes the gallery URL for browsing the hoard', () => {
   const outputs = template.findOutputs('GalleryUrl');
   expect(Object.keys(outputs)).toHaveLength(1);
 });
+
+test('the reception desk speaks HTTP API v2', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::ApiGatewayV2::Api', {
+    ProtocolType: 'HTTP',
+  });
+});
+
+test('only GET /shitposts is on the menu', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+    RouteKey: 'GET /shitposts',
+  });
+});
+
+test('the desk consents to GET callers from the gallery door alone', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::ApiGatewayV2::Api', {
+    CorsConfiguration: {
+      AllowMethods: ['GET'],
+      AllowOrigins: [Match.anyValue()],
+    },
+  });
+});
+
+test('the till clerk may read the catalogue', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Effect: 'Allow',
+          Action: Match.arrayWith(['dynamodb:Query']),
+        }),
+      ]),
+    },
+  });
+});
+
+test('the till clerk knows which catalogue to consult', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Environment: {
+      Variables: {
+        CATALOGUE_TABLE_NAME: Match.anyValue(),
+      },
+    },
+  });
+});
+
+test('publishes the API URL for the gallery to call', () => {
+  const template = synthesize();
+
+  const outputs = template.findOutputs('CatalogueApiUrl');
+  expect(Object.keys(outputs)).toHaveLength(1);
+});
