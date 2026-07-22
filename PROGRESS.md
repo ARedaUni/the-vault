@@ -12,7 +12,7 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 400 / 1900
+- **XP:** 550 / 1900
 - **Current quest:** Quest 2 — The Gateway
 
 ## 📜 Rules of the Realm
@@ -36,7 +36,7 @@
 | 0 | **First Contact** | CDK, deploy loop, Lambda Function URL | 100 | ✅ 2026-07-19 |
 | 1 | **The Hoard** | S3 media bucket, bulk upload, DynamoDB catalogue | 200 | ✅ 2026-07-19 |
 | 1.5 | **The Vault Door** | Gallery UI, CloudFront, OAC, CORS | 100 | ✅ 2026-07-20 |
-| 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | 🔵 Next |
+| 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | 🟡 In progress |
 | 3 | **The Fortress** | IAM least-privilege, KMS, Cognito, cdk-nag | 300 | ⚪ |
 | 4 | **The Watchtower** | Structured logs, EMF metrics, alarms, dashboards | 200 | ⚪ |
 | 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ⚪ |
@@ -49,6 +49,37 @@
 ## 🚢 Ship Log
 
 *(newest first — every session gets a line, even the scrappy ones)*
+
+- **2026-07-22 (session 4, addendum) — Quest 2 part-1 checkpoint PASSED
+  (+150 XP, 100 rides on the write path).** First round 🟡🟢🟢🔴🔴: nailed
+  CORS-is-browser-etiquette and API-is-public-until-Cognito, plus
+  types-check-shapes-contracts-check-behaviour; dropped the DI/port/adapter
+  names, marshalling (didn't know DynamoDB always stores typed envelopes —
+  DocumentClient is client-side gloves), and pattern-matched an IAM
+  AccessDenied to CORS. Redemption swept 3/3: DI/port/adapter named, raw
+  client returns `{S: …}` (storage never changes), and the PutItem infra red
+  in signal.test.ts is what forces grantReadData → grantReadWriteData.
+  Watch: answers getting terser — names without reasons bank nothing at the
+  Boss Fight.
+
+- **2026-07-20 (session 4) — Quest 2 part 1: the Gateway is LIVE; the gallery
+  runs on its own API. 🚪** Full hexagonal catalogue Lambda TDD'd
+  (domain/usecases/repositories/routes, exemplar's folder dialect; Zod at every
+  trust boundary — env, DB rows; Ali's audit then killed 4 vendor/plumbing
+  tests and renamed the suite to plain behaviour specs — analogies stay in
+  teaching, out of tests). Article-driven hardening: repository contract suite
+  runs ONE spec against both the in-memory fake and the DynamoDB adapter (fake
+  can't drift silently), and the handler maps repo failures to a leak-free 500.
+  HTTP API v2 (exemplar's flavour) with CORS pinned to the gallery's origin
+  alone, `grantReadData` (least privilege — read-only until a write use case
+  demands more). Backfilled all 91 vault objects into the catalogue
+  (BatchWrite, 25-per-chunk, uploadedAt from S3 LastModified). Gallery flipped
+  from frozen manifest.json (deleted — debt repaid) to cross-origin
+  `GET /shitposts`; CORS verified live (right origin gets the consent header,
+  evil.example.com gets silence). Deploys: 74s + 90s. New debt: API_URL
+  hardcoded in index.html → build-time env injection when Vite arrives.
+  Remaining for Quest 2: write path (POST + port `save()` + contract growth +
+  test/support extraction), checkpoint.
 
 - **2026-07-20 (session 3, addendum) — Quest 1.5 checkpoint PASSED (+100 XP).**
   First round was rough (two reds: claimed both buckets RETAIN; reached for

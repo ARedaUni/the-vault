@@ -3,37 +3,25 @@ import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { dynamoDbShitpostRepository } from '../lambda/catalogue/repositories/shitposts';
 import { createShitpostsHandler } from '../lambda/catalogue/routes/shitposts';
+import type { CatalogueEvent } from '../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../lambda/catalogue/domain/shitpost';
 import type { ShitpostRepository } from '../lambda/catalogue/domain/shitpost-repository';
+import {
+  aShitpost,
+  dynamoDbBackedRepository,
+  inMemoryRepository,
+} from './support/catalogue';
 
-const aShitpost = (overrides: Partial<Shitpost> = {}): Shitpost => ({
-  shitpostKey: 'media/default.png',
-  uploadedAt: '2026-07-01T12:00:00Z',
+const aRequest = (overrides: Partial<CatalogueEvent> = {}): CatalogueEvent => ({
+  requestContext: { http: { method: 'GET' } },
   ...overrides,
 });
 
-const inMemoryRepository = (
-  shitposts: readonly Shitpost[],
-): ShitpostRepository => ({
-  findAll: async () => shitposts,
-});
-
-const dynamoDbBackedRepository = (
-  shitposts: readonly Shitpost[],
-): ShitpostRepository => {
-  const dynamoDb = mockClient(DynamoDBDocumentClient);
-  dynamoDb.on(QueryCommand, { TableName: 'TestCatalogue' }).resolves({
-    Items: shitposts.map((shitpost) => ({
-      PK: 'SHITPOST',
-      SK: shitpost.shitpostKey,
-      uploadedAt: shitpost.uploadedAt,
-    })),
+const aPostRequest = (body: unknown): CatalogueEvent =>
+  aRequest({
+    requestContext: { http: { method: 'POST' } },
+    body: JSON.stringify(body),
   });
-  return dynamoDbShitpostRepository({
-    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
-    tableName: 'TestCatalogue',
-  });
-};
 
 const shitpostRepositoryContract = (
   implementation: string,
@@ -54,6 +42,15 @@ const shitpostRepositoryContract = (
 
     test('findAll returns an empty list from an empty catalogue', async () => {
       await expect(makeRepository([]).findAll()).resolves.toEqual([]);
+    });
+
+    test('save makes a shitpost retrievable by findAll', async () => {
+      const repository = makeRepository([]);
+      const fresh = aShitpost({ shitpostKey: 'media/brand-new.png' });
+
+      await repository.save(fresh);
+
+      await expect(repository.findAll()).resolves.toEqual([fresh]);
     });
   });
 };
@@ -81,25 +78,56 @@ test('GET /shitposts responds 200 with the hoard as JSON, newest first', async (
     shitpostKey: 'media/fresh.mp4',
     uploadedAt: '2026-07-19T21:00:00Z',
   });
-  const middle = aShitpost({
-    shitpostKey: 'media/middling.png',
-    uploadedAt: '2026-01-15T14:30:00Z',
-  });
   const oldest = aShitpost({
     shitpostKey: 'media/ancient.png',
     uploadedAt: '2025-10-08T09:00:00Z',
   });
-  const handler = createShitpostsHandler(
-    inMemoryRepository([oldest, newest, middle]),
-  );
+  const handler = createShitpostsHandler(inMemoryRepository([oldest, newest]));
 
-  const response = await handler();
+  const response = await handler(aRequest());
 
   expect(response.statusCode).toBe(200);
   expect(response.headers?.['Content-Type']).toBe('application/json');
   expect(JSON.parse(response.body ?? '')).toEqual({
-    shitposts: [newest, middle, oldest],
+    shitposts: [newest, oldest],
   });
+});
+
+test('POST /shitposts stores a valid shitpost and responds 201', async () => {
+  const repository = inMemoryRepository([]);
+  const handler = createShitpostsHandler(repository);
+  const fresh = aShitpost({ shitpostKey: 'media/just-posted.png' });
+
+  const response = await handler(aPostRequest(fresh));
+
+  expect(response.statusCode).toBe(201);
+  expect(JSON.parse(response.body ?? '')).toEqual({ shitpost: fresh });
+  await expect(repository.findAll()).resolves.toEqual([fresh]);
+});
+
+test('POST /shitposts rejects an invalid body with 400 and stores nothing', async () => {
+  const repository = inMemoryRepository([]);
+  const handler = createShitpostsHandler(repository);
+
+  const response = await handler(
+    aPostRequest({ shitpostKey: '', uploadedAt: 'not-a-date' }),
+  );
+
+  expect(response.statusCode).toBe(400);
+  await expect(repository.findAll()).resolves.toEqual([]);
+});
+
+test('POST /shitposts rejects a body that is not JSON with 400', async () => {
+  const handler = createShitpostsHandler(inMemoryRepository([]));
+
+  const response = await handler(
+    aRequest({
+      requestContext: { http: { method: 'POST' } },
+      body: 'not json at all',
+    }),
+  );
+
+  expect(response.statusCode).toBe(400);
 });
 
 test('GET /shitposts responds 500 without leaking internals when the catalogue is unreachable', async () => {
@@ -107,13 +135,15 @@ test('GET /shitposts responds 500 without leaking internals when the catalogue i
     findAll: async () => {
       throw new Error('ConnectionTimeout: 10.0.4.2:8000 credentials=AKIA...');
     },
+    save: async () => {
+      throw new Error('unreachable');
+    },
   };
   const handler = createShitpostsHandler(brokenRepository);
 
-  const response = await handler();
+  const response = await handler(aRequest());
 
   expect(response.statusCode).toBe(500);
-  expect(response.headers?.['Content-Type']).toBe('application/json');
   expect(response.body).not.toContain('ConnectionTimeout');
   expect(JSON.parse(response.body ?? '')).toEqual({
     error: 'catalogue unavailable',

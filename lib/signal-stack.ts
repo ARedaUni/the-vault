@@ -110,18 +110,18 @@ export class SignalStack extends cdk.Stack {
       },
     });
 
-    catalogueTable.grantReadData(catalogueFunction);
+    catalogueTable.grantReadWriteData(catalogueFunction);
 
     const catalogueApi = new apigwv2.HttpApi(this, 'CatalogueApi', {
       corsPreflight: {
         allowOrigins: [`https://${gallery.distributionDomainName}`],
-        allowMethods: [apigwv2.CorsHttpMethod.GET],
+        allowMethods: [apigwv2.CorsHttpMethod.GET, apigwv2.CorsHttpMethod.POST],
       },
     });
 
     catalogueApi.addRoutes({
       path: '/shitposts',
-      methods: [apigwv2.HttpMethod.GET],
+      methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
       integration: new HttpLambdaIntegration(
         'CatalogueIntegration',
         catalogueFunction,

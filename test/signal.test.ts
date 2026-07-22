@@ -202,12 +202,20 @@ test('the API routes GET /shitposts to a Lambda integration', () => {
   });
 });
 
-test('API CORS permits only GET, from a single allowed origin', () => {
+test('the API routes POST /shitposts to a Lambda integration', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+    RouteKey: 'POST /shitposts',
+  });
+});
+
+test('API CORS permits only GET and POST, from a single allowed origin', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::ApiGatewayV2::Api', {
     CorsConfiguration: {
-      AllowMethods: ['GET'],
+      AllowMethods: ['GET', 'POST'],
       AllowOrigins: [Match.anyValue()],
     },
   });
@@ -222,6 +230,21 @@ test('the catalogue Lambda role is allowed to query DynamoDB', () => {
         Match.objectLike({
           Effect: 'Allow',
           Action: Match.arrayWith(['dynamodb:Query']),
+        }),
+      ]),
+    },
+  });
+});
+
+test('the catalogue Lambda role is allowed to write to DynamoDB', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Effect: 'Allow',
+          Action: Match.arrayWith(['dynamodb:PutItem']),
         }),
       ]),
     },
