@@ -12,8 +12,8 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 550 / 1900
-- **Current quest:** Quest 2 — The Gateway
+- **XP:** 650 / 1900
+- **Current quest:** Quest 3 — The Fortress
 
 ## 📜 Rules of the Realm
 
@@ -36,7 +36,7 @@
 | 0 | **First Contact** | CDK, deploy loop, Lambda Function URL | 100 | ✅ 2026-07-19 |
 | 1 | **The Hoard** | S3 media bucket, bulk upload, DynamoDB catalogue | 200 | ✅ 2026-07-19 |
 | 1.5 | **The Vault Door** | Gallery UI, CloudFront, OAC, CORS | 100 | ✅ 2026-07-20 |
-| 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | 🟡 In progress |
+| 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | ✅ 2026-07-22 |
 | 3 | **The Fortress** | IAM least-privilege, KMS, Cognito, cdk-nag | 300 | ⚪ |
 | 4 | **The Watchtower** | Structured logs, EMF metrics, alarms, dashboards | 200 | ⚪ |
 | 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ⚪ |
@@ -49,6 +49,19 @@
 ## 🚢 Ship Log
 
 *(newest first — every session gets a line, even the scrappy ones)*
+
+- **2026-07-22 (session 4, close) — Quest 2 COMPLETE: final checkpoint PASSED
+  (+100 XP → 650/1900).** First round 🔴🔴🟡🟡🟡 — the "CORS token"
+  misconception died on its third appearance (full wire transcript: preflight
+  is an automatic browser OPTIONS, the reply is plain read-once headers,
+  nothing is carried; unapproved writes never leave the browser). 400-must-be-
+  a-no-op (validate before side effects), contract-suite-as-membership-test
+  (round-trip catches stale reads), orphaned-bytes named. Redemption 3/3.
+  Deep-dives delivered: distributed-transaction ladder (choose your orphan →
+  compensate/saga → reconcile — the backfill script IS a primitive reconciler
+  → presigned-URL + event-driven flow, Quest 6) and the ladder of proof
+  (fake → stubbed contract → smoke test; the ':pkk' typo shows why rung 3 is
+  load-bearing). Quest 2 ✅ — next stop, The Fortress.
 
 - **2026-07-22 (session 4, addendum) — Quest 2 part-1 checkpoint PASSED
   (+150 XP, 100 rides on the write path).** First round 🟡🟢🟢🔴🔴: nailed
