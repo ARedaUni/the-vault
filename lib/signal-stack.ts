@@ -1,6 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
+import { HttpUserPoolAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -119,13 +121,43 @@ export class SignalStack extends cdk.Stack {
       },
     });
 
+    const vaultKeepers = new cognito.UserPool(this, 'VaultKeepersPool', {
+      selfSignUpEnabled: false,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const vaultKeepersClient = vaultKeepers.addClient('VaultKeepersClient', {
+      authFlows: { userPassword: true },
+    });
+
+    const catalogueIntegration = new HttpLambdaIntegration(
+      'CatalogueIntegration',
+      catalogueFunction,
+    );
+
     catalogueApi.addRoutes({
       path: '/shitposts',
-      methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
-      integration: new HttpLambdaIntegration(
-        'CatalogueIntegration',
-        catalogueFunction,
-      ),
+      methods: [apigwv2.HttpMethod.GET],
+      integration: catalogueIntegration,
+    });
+
+    catalogueApi.addRoutes({
+      path: '/shitposts',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: catalogueIntegration,
+      authorizer: new HttpUserPoolAuthorizer('VaultKeeperAuthorizer', vaultKeepers, {
+        userPoolClients: [vaultKeepersClient],
+      }),
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolId', {
+      value: vaultKeepers.userPoolId,
+      description: 'Quest 3 — the membership office',
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolClientId', {
+      value: vaultKeepersClient.userPoolClientId,
+      description: 'Quest 3 — the front desk app for obtaining JWTs',
     });
 
     new cdk.CfnOutput(this, 'CatalogueApiUrl', {

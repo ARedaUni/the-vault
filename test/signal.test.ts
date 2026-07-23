@@ -269,3 +269,36 @@ test('publishes the API URL as a stack output', () => {
   const outputs = template.findOutputs('CatalogueApiUrl');
   expect(Object.keys(outputs)).toHaveLength(1);
 });
+
+test('the user pool forbids self sign-up — members are created by admins only', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Cognito::UserPool', {
+    AdminCreateUserConfig: { AllowAdminCreateUserOnly: true },
+  });
+});
+
+test('POST /shitposts requires a valid user-pool JWT', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+    RouteKey: 'POST /shitposts',
+    AuthorizationType: 'JWT',
+  });
+});
+
+test('GET /shitposts stays public so the gallery keeps loading', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+    RouteKey: 'GET /shitposts',
+    AuthorizationType: 'NONE',
+  });
+});
+
+test('publishes user pool and client IDs for obtaining tokens', () => {
+  const template = synthesize();
+
+  expect(Object.keys(template.findOutputs('UserPoolId'))).toHaveLength(1);
+  expect(Object.keys(template.findOutputs('UserPoolClientId'))).toHaveLength(1);
+});
