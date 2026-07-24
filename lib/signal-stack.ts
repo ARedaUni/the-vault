@@ -14,8 +14,12 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
 
+export type SignalStackProps = cdk.StackProps & {
+  webAclArn?: string;
+};
+
 export class SignalStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: SignalStackProps) {
     super(scope, id, props);
 
     const helloFunction = new lambda.Function(this, 'HelloFunction', {
@@ -70,6 +74,7 @@ export class SignalStack extends cdk.Stack {
     });
 
     const gallery = new cloudfront.Distribution(this, 'GalleryDistribution', {
+      webAclId: props?.webAclArn,
       defaultRootObject: 'index.html',
       defaultBehavior: {
         origin: S3BucketOrigin.withOriginAccessControl(galleryShell),

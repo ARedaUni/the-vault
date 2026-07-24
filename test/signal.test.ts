@@ -343,6 +343,20 @@ test('only one bucket carries the customer key — the public shell keeps defaul
   expect(kmsBuckets).toHaveLength(1);
 });
 
+test('the gallery distribution wears the web ACL when one is supplied', () => {
+  const app = new cdk.App();
+  const stack = new SignalStack(app, 'TestStack', {
+    webAclArn: 'arn:aws:wafv2:us-east-1:111111111111:global/webacl/test/abc',
+  });
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties('AWS::CloudFront::Distribution', {
+    DistributionConfig: {
+      WebACLId: 'arn:aws:wafv2:us-east-1:111111111111:global/webacl/test/abc',
+    },
+  });
+});
+
 test('the key rotates yearly and survives stack deletion — lose the key, lose the hoard', () => {
   const template = synthesize();
 
