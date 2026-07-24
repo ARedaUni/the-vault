@@ -302,3 +302,54 @@ test('publishes user pool and client IDs for obtaining tokens', () => {
   expect(Object.keys(template.findOutputs('UserPoolId'))).toHaveLength(1);
   expect(Object.keys(template.findOutputs('UserPoolClientId'))).toHaveLength(1);
 });
+
+test('the media bucket is sealed with a customer-managed KMS key', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::S3::Bucket', {
+    BucketEncryption: {
+      ServerSideEncryptionConfiguration: [
+        Match.objectLike({
+          ServerSideEncryptionByDefault: Match.objectLike({
+            SSEAlgorithm: 'aws:kms',
+          }),
+        }),
+      ],
+    },
+  });
+});
+
+test('the catalogue table is sealed with a customer-managed KMS key', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::DynamoDB::Table', {
+    SSESpecification: {
+      SSEEnabled: true,
+      KMSMasterKeyId: Match.anyValue(),
+    },
+  });
+});
+
+test('only one bucket carries the customer key — the public shell keeps defaults', () => {
+  const template = synthesize();
+
+  const kmsBuckets = Object.values(
+    template.findResources('AWS::S3::Bucket'),
+  ).filter((bucket) =>
+    JSON.stringify(bucket.Properties?.BucketEncryption ?? {}).includes(
+      'aws:kms',
+    ),
+  );
+  expect(kmsBuckets).toHaveLength(1);
+});
+
+test('the key rotates yearly and survives stack deletion — lose the key, lose the hoard', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::KMS::Key', {
+    EnableKeyRotation: true,
+  });
+  template.hasResource('AWS::KMS::Key', {
+    DeletionPolicy: 'Retain',
+  });
+});

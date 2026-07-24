@@ -50,6 +50,24 @@
 
 *(newest first — every session gets a line, even the scrappy ones)*
 
+- **2026-07-24 (session 5) — Quest 3 parts 1+2: the membership office and the
+  locksmith. 🔐** Cognito user pool (self-signup OFF — members minted by admin
+  only) + `HttpUserPoolAuthorizer` on POST /shitposts; GET pinned public *by
+  declared intent* (`AuthorizationType: 'NONE'`, not absent). Live-proved the
+  whole ladder: no token → 401, forged token → 401 (killed at the gateway by
+  offline JWKS verification — Lambda never invoked, rejection is free), real
+  ID token → 201. Deep-dives: Cognito as identity *broker* (one issuer ever,
+  even with Google/SAML behind it), auth-flow menu (SRP vs USER_PASSWORD vs
+  choice-based OTP/passkeys), asymmetric crypto's one sentence — *the secret
+  stays home; the world gets the verifier*. Then KMS: `HoardKey`
+  (rotate-yearly, RETAIN — a key you can lose is data you can lose) sealing
+  vault bucket + catalogue table; keys map to data classifications, not
+  services (public shell keeps defaults — proven by test). 4 red → 45/45
+  green, deployed, smoke-tested the classic outage: uploaded a KMS-sealed
+  object and fetched it through CloudFront (200 — CDK really did put the
+  distribution on the key policy). Known debt, accepted: the 91 pre-key
+  objects stay SSE-S3. Remaining for Quest 3: WAF, cdk-nag, checkpoint.
+
 - **2026-07-22 (session 4, close) — Quest 2 COMPLETE: final checkpoint PASSED
   (+100 XP → 650/1900).** First round 🔴🔴🟡🟡🟡 — the "CORS token"
   misconception died on its third appearance (full wire transcript: preflight

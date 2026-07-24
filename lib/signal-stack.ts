@@ -6,6 +6,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -42,10 +43,18 @@ export class SignalStack extends cdk.Stack {
       description: 'Quest 0 — hit this with curl',
     });
 
+    const hoardKey = new kms.Key(this, 'HoardKey', {
+      enableKeyRotation: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     const mediaBucket = new s3.Bucket(this, 'MediaBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
+      encryption: s3.BucketEncryption.KMS,
+      encryptionKey: hoardKey,
+      bucketKeyEnabled: true,
     });
 
     new cdk.CfnOutput(this, 'MediaBucketName', {
@@ -93,6 +102,8 @@ export class SignalStack extends cdk.Stack {
       sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: hoardKey,
     });
 
     new cdk.CfnOutput(this, 'CatalogueTableName', {
