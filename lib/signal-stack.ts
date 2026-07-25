@@ -240,6 +240,88 @@ export class SignalStack extends cdk.Stack {
     errorAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
     latencyAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
 
+    const catalogueMetric = (
+      metricName: string,
+      statistic: string,
+    ): cloudwatch.Metric =>
+      new cloudwatch.Metric({
+        namespace: 'Signal/Catalogue',
+        metricName,
+        statistic,
+        period: cdk.Duration.minutes(5),
+      });
+
+    const dashboard = new cloudwatch.Dashboard(this, 'VaultDashboard', {
+      defaultInterval: cdk.Duration.hours(3),
+    });
+
+    dashboard.addWidgets(
+      new cloudwatch.AlarmStatusWidget({
+        title: 'Pager state',
+        alarms: [errorAlarm, latencyAlarm],
+        width: 6,
+        height: 6,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Errors (per 5 min)',
+        left: [catalogueMetric('errorCount', cloudwatch.Stats.SUM)],
+        width: 6,
+        height: 6,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Latency p50 vs p99 (ms)',
+        left: [
+          catalogueMetric('durationMs', cloudwatch.Stats.p(50)),
+          catalogueMetric('durationMs', cloudwatch.Stats.p(99)),
+        ],
+        width: 6,
+        height: 6,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Traffic by method and status',
+        left: [
+          new cloudwatch.Metric({
+            namespace: 'Signal/Catalogue',
+            metricName: 'errorCount',
+            statistic: cloudwatch.Stats.SAMPLE_COUNT,
+            period: cdk.Duration.minutes(5),
+            dimensionsMap: { method: 'GET', statusCode: '200' },
+            label: 'GET 200',
+          }),
+          new cloudwatch.Metric({
+            namespace: 'Signal/Catalogue',
+            metricName: 'errorCount',
+            statistic: cloudwatch.Stats.SAMPLE_COUNT,
+            period: cdk.Duration.minutes(5),
+            dimensionsMap: { method: 'POST', statusCode: '201' },
+            label: 'POST 201',
+          }),
+        ],
+        width: 6,
+        height: 6,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Saturation — Lambda concurrency & DynamoDB throttles',
+        left: [
+          catalogueFunction.metric('ConcurrentExecutions', {
+            statistic: cloudwatch.Stats.MAXIMUM,
+            period: cdk.Duration.minutes(5),
+          }),
+          catalogueTable.metric('ThrottledRequests', {
+            statistic: cloudwatch.Stats.SUM,
+            period: cdk.Duration.minutes(5),
+          }),
+        ],
+        width: 24,
+        height: 6,
+      }),
+    );
+
+    new cdk.CfnOutput(this, 'DashboardName', {
+      value: dashboard.dashboardName,
+      description: 'Quest 4 — the watchtower: one screen for the 3am question',
+    });
+
     NagSuppressions.addResourceSuppressions(gallery, [
       {
         id: 'AwsSolutions-CFR1',

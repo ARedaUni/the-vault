@@ -407,6 +407,39 @@ test('the alarm topic pages the keeper by email', () => {
   });
 });
 
+const dashboardBody = (template: Template): string => {
+  const dashboards = Object.values(
+    template.findResources('AWS::CloudWatch::Dashboard'),
+  );
+  expect(dashboards).toHaveLength(1);
+  return JSON.stringify(dashboards[0].Properties.DashboardBody).replace(
+    /\\"/g,
+    '"',
+  );
+};
+
+test('the vault dashboard graphs the four golden signals', () => {
+  const body = dashboardBody(synthesize());
+
+  expect(body).toContain('Signal/Catalogue');
+  expect(body).toContain('errorCount');
+  expect(body).toContain('p99');
+  expect(body).toContain('p50');
+  expect(body).toContain('statusCode');
+  expect(body).toContain('ConcurrentExecutions');
+  expect(body).toContain('ThrottledRequests');
+});
+
+test('the dashboard leads with pager state and stays at five widgets', () => {
+  const body = dashboardBody(synthesize());
+
+  expect(body.match(/"type":"alarm"/g)).toHaveLength(1);
+  expect(body.match(/"type":"metric"/g)).toHaveLength(4);
+  expect(body.indexOf('"type":"alarm"')).toBeLessThan(
+    body.indexOf('"type":"metric"'),
+  );
+});
+
 test('every alarm publishes to the alarm topic when it fires', () => {
   const template = synthesize();
 
