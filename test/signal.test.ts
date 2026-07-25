@@ -397,3 +397,22 @@ test('sustained slow requests raise the latency alarm, one slow blip does not', 
     TreatMissingData: 'notBreaching',
   });
 });
+
+test('the alarm topic pages the keeper by email', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::SNS::Subscription', {
+    Protocol: 'email',
+    Endpoint: 'areda090@gmail.com',
+  });
+});
+
+test('every alarm publishes to the alarm topic when it fires', () => {
+  const template = synthesize();
+
+  const alarms = Object.values(template.findResources('AWS::CloudWatch::Alarm'));
+  expect(alarms.length).toBeGreaterThan(0);
+  alarms.forEach((alarm) => {
+    expect(alarm.Properties.AlarmActions).toHaveLength(1);
+  });
+});

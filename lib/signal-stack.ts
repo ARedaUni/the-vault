@@ -5,6 +5,10 @@ import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as kms from 'aws-cdk-lib/aws-kms';
@@ -191,7 +195,18 @@ export class SignalStack extends cdk.Stack {
       description: 'Quest 2 — the gateway: GET /shitposts',
     });
 
-    new cloudwatch.Alarm(this, 'CatalogueErrorAlarm', {
+    const alarmTopic = new sns.Topic(this, 'AlarmTopic', {
+      masterKey: hoardKey,
+      enforceSSL: true,
+    });
+    alarmTopic.addSubscription(
+      new snsSubscriptions.EmailSubscription('areda090@gmail.com'),
+    );
+    hoardKey.grantEncryptDecrypt(
+      new iam.ServicePrincipal('cloudwatch.amazonaws.com'),
+    );
+
+    const errorAlarm = new cloudwatch.Alarm(this, 'CatalogueErrorAlarm', {
       alarmDescription:
         'Any catalogue error — at Vault traffic a single error burns a third of the monthly 99.9% budget',
       metric: new cloudwatch.Metric({
@@ -207,7 +222,7 @@ export class SignalStack extends cdk.Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
-    new cloudwatch.Alarm(this, 'CatalogueLatencyAlarm', {
+    const latencyAlarm = new cloudwatch.Alarm(this, 'CatalogueLatencyAlarm', {
       alarmDescription:
         'p99 above one second for three consecutive periods — sustained slowness, not a lone cold start',
       metric: new cloudwatch.Metric({
@@ -221,6 +236,9 @@ export class SignalStack extends cdk.Stack {
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
+
+    errorAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+    latencyAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
 
     NagSuppressions.addResourceSuppressions(gallery, [
       {
