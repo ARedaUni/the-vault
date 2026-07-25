@@ -77,6 +77,26 @@ test('the instrumented repository measures time spent in the port and items retu
   expect(drain()).toEqual({ repositoryDurationMs: 80, itemCount: 2 });
 });
 
+test('a repository failure still records the time spent failing', async () => {
+  const denied = new Error('AccessDeniedException');
+  const failingRepository: ShitpostRepository = {
+    findAll: async () => {
+      throw denied;
+    },
+    save: async () => {
+      throw denied;
+    },
+  };
+  const { repository, drain } = withRepositoryTelemetry(failingRepository, {
+    now: tickingClock(40),
+  });
+
+  await expect(repository.findAll()).rejects.toThrow(denied);
+  await expect(repository.save(aShitpost())).rejects.toThrow(denied);
+
+  expect(drain()).toEqual({ repositoryDurationMs: 80, itemCount: 0 });
+});
+
 test('draining the telemetry resets it for the next request', async () => {
   const { repository, drain } = withRepositoryTelemetry(inMemoryRepository([]), {
     now: tickingClock(40),

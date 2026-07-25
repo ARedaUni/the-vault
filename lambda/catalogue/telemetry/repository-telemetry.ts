@@ -18,8 +18,8 @@ export const withRepositoryTelemetry = (
   let repositoryDurationMs = 0;
   let itemCount = 0;
 
-  const record = (measurement: { durationMs: number; itemCount?: number }) => {
-    repositoryDurationMs += measurement.durationMs;
+  const record = (measurement: { durationMs?: number; itemCount?: number }) => {
+    repositoryDurationMs += measurement.durationMs ?? 0;
     itemCount += measurement.itemCount ?? 0;
   };
 
@@ -27,14 +27,21 @@ export const withRepositoryTelemetry = (
     repository: {
       findAll: async () => {
         const startedAt = now();
-        const found = await inner.findAll();
-        record({ durationMs: now() - startedAt, itemCount: found.length });
-        return found;
+        try {
+          const found = await inner.findAll();
+          record({ itemCount: found.length });
+          return found;
+        } finally {
+          record({ durationMs: now() - startedAt });
+        }
       },
       save: async (shitpost) => {
         const startedAt = now();
-        await inner.save(shitpost);
-        record({ durationMs: now() - startedAt });
+        try {
+          await inner.save(shitpost);
+        } finally {
+          record({ durationMs: now() - startedAt });
+        }
       },
     },
     drain: () => {
