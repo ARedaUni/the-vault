@@ -6,6 +6,7 @@ import { createShitpostsHandler } from '../lambda/catalogue/routes/shitposts';
 import type { CatalogueEvent } from '../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../lambda/catalogue/domain/shitpost';
 import type { ShitpostRepository } from '../lambda/catalogue/domain/shitpost-repository';
+import { withRepositoryTelemetry } from '../lambda/catalogue/telemetry/repository-telemetry';
 import {
   aShitpost,
   dynamoDbBackedRepository,
@@ -57,6 +58,51 @@ const shitpostRepositoryContract = (
 
 shitpostRepositoryContract('in-memory fake', inMemoryRepository);
 shitpostRepositoryContract('DynamoDB adapter', dynamoDbBackedRepository);
+shitpostRepositoryContract(
+  'instrumented decorator',
+  (seed) => withRepositoryTelemetry(inMemoryRepository(seed)).repository,
+);
+
+test('the instrumented repository measures time spent in the port and items returned', async () => {
+  const { repository, drain } = withRepositoryTelemetry(
+    inMemoryRepository([aShitpost(), aShitpost({ shitpostKey: 'media/two.png' })]),
+    { now: tickingClock(40) },
+  );
+
+  await repository.findAll();
+  await repository.save(aShitpost({ shitpostKey: 'media/three.png' }));
+
+  expect(drain()).toEqual({ repositoryDurationMs: 80, itemCount: 2 });
+});
+
+test('draining the telemetry resets it for the next request', async () => {
+  const { repository, drain } = withRepositoryTelemetry(inMemoryRepository([]), {
+    now: tickingClock(40),
+  });
+
+  await repository.findAll();
+  drain();
+
+  expect(drain()).toEqual({ repositoryDurationMs: 0, itemCount: 0 });
+});
+
+test('the canonical event carries repository timing and item count', async () => {
+  const { repository, drain } = withRepositoryTelemetry(
+    inMemoryRepository([aShitpost()]),
+    { now: tickingClock(30) },
+  );
+  const events: Record<string, unknown>[] = [];
+  const handler = createShitpostsHandler(repository, {
+    emit: (event) => events.push(event),
+    collect: drain,
+  });
+
+  await handler(aRequest());
+
+  expect(events).toEqual([
+    expect.objectContaining({ repositoryDurationMs: 30, itemCount: 1 }),
+  ]);
+});
 
 test('the DynamoDB repository rejects malformed rows at the database boundary', async () => {
   const dynamoDb = mockClient(DynamoDBDocumentClient);
@@ -128,6 +174,72 @@ test('POST /shitposts rejects a body that is not JSON with 400', async () => {
   );
 
   expect(response.statusCode).toBe(400);
+});
+
+const tickingClock = (stepMs: number) => {
+  let elapsed = 0;
+  return () => (elapsed += stepMs);
+};
+
+test('every request emits exactly one canonical event carrying the request vitals', async () => {
+  const events: Record<string, unknown>[] = [];
+  const handler = createShitpostsHandler(inMemoryRepository([aShitpost()]), {
+    emit: (event) => events.push(event),
+    now: tickingClock(125),
+  });
+
+  await handler(
+    aRequest({
+      rawPath: '/shitposts',
+      requestContext: { requestId: 'req-123', http: { method: 'GET' } },
+    }),
+  );
+
+  expect(events).toEqual([
+    expect.objectContaining({
+      method: 'GET',
+      path: '/shitposts',
+      statusCode: 200,
+      durationMs: 125,
+      coldStart: true,
+      requestId: 'req-123',
+    }),
+  ]);
+});
+
+test('only the first request on a container counts as a cold start', async () => {
+  const events: Record<string, unknown>[] = [];
+  const handler = createShitpostsHandler(inMemoryRepository([]), {
+    emit: (event) => events.push(event),
+  });
+
+  await handler(aRequest());
+  await handler(aRequest());
+
+  expect(events.map((event) => event.coldStart)).toEqual([true, false]);
+});
+
+test('a repository failure still emits the canonical event, naming the error class', async () => {
+  const failure = new Error('ConnectionTimeout: 10.0.4.2:8000');
+  failure.name = 'ConnectionTimeout';
+  const brokenRepository: ShitpostRepository = {
+    findAll: async () => {
+      throw failure;
+    },
+    save: async () => {
+      throw failure;
+    },
+  };
+  const events: Record<string, unknown>[] = [];
+  const handler = createShitpostsHandler(brokenRepository, {
+    emit: (event) => events.push(event),
+  });
+
+  await handler(aRequest());
+
+  expect(events).toEqual([
+    expect.objectContaining({ statusCode: 500, errorName: 'ConnectionTimeout' }),
+  ]);
 });
 
 test('GET /shitposts responds 500 without leaking internals when the catalogue is unreachable', async () => {

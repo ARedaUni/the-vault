@@ -5,8 +5,27 @@ import { addShitpost } from '../usecases/add-shitpost';
 import { listShitposts } from '../usecases/list-shitposts';
 
 export type CatalogueEvent = {
-  requestContext: { http: { method: string } };
+  requestContext: { requestId?: string; http: { method: string } };
+  rawPath?: string;
   body?: string;
+};
+
+export type CanonicalRequestEvent = {
+  method: string;
+  path?: string;
+  statusCode: number;
+  durationMs: number;
+  coldStart: boolean;
+  requestId?: string;
+  errorName?: string;
+  repositoryDurationMs?: number;
+  itemCount?: number;
+};
+
+type HandlerOptions = {
+  emit?: (event: CanonicalRequestEvent) => void;
+  now?: () => number;
+  collect?: () => Pick<CanonicalRequestEvent, 'repositoryDurationMs' | 'itemCount'>;
 };
 
 const json = (
@@ -26,27 +45,68 @@ const parseJson = (body?: string): unknown => {
   }
 };
 
-export const createShitpostsHandler =
-  (repository: ShitpostRepository) =>
-  async (event: CatalogueEvent): Promise<APIGatewayProxyStructuredResultV2> => {
-    try {
-      const method = event.requestContext.http.method;
+const dispatch = async (
+  repository: ShitpostRepository,
+  event: CatalogueEvent,
+): Promise<{
+  response: APIGatewayProxyStructuredResultV2;
+  errorName?: string;
+}> => {
+  try {
+    const method = event.requestContext.http.method;
 
-      if (method === 'GET') {
-        return json(200, { shitposts: await listShitposts(repository) });
-      }
-
-      if (method === 'POST') {
-        const parsed = shitpostSchema.safeParse(parseJson(event.body));
-        if (!parsed.success) {
-          return json(400, { error: 'invalid shitpost' });
-        }
-        return json(201, { shitpost: await addShitpost(repository, parsed.data) });
-      }
-
-      return json(405, { error: 'method not allowed' });
-    } catch (error) {
-      console.error(error);
-      return json(500, { error: 'catalogue unavailable' });
+    if (method === 'GET') {
+      return { response: json(200, { shitposts: await listShitposts(repository) }) };
     }
+
+    if (method === 'POST') {
+      const parsed = shitpostSchema.safeParse(parseJson(event.body));
+      if (!parsed.success) {
+        return { response: json(400, { error: 'invalid shitpost' }) };
+      }
+      return {
+        response: json(201, { shitpost: await addShitpost(repository, parsed.data) }),
+      };
+    }
+
+    return { response: json(405, { error: 'method not allowed' }) };
+  } catch (error) {
+    console.error(error);
+    return {
+      response: json(500, { error: 'catalogue unavailable' }),
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    };
+  }
+};
+
+export const createShitpostsHandler = (
+  repository: ShitpostRepository,
+  options: HandlerOptions = {},
+) => {
+  const emit = options.emit ?? (() => undefined);
+  const now = options.now ?? Date.now;
+  let nextRequestIsColdStart = true;
+
+  return async (
+    event: CatalogueEvent,
+  ): Promise<APIGatewayProxyStructuredResultV2> => {
+    const startedAt = now();
+    const coldStart = nextRequestIsColdStart;
+    nextRequestIsColdStart = false;
+
+    const { response, errorName } = await dispatch(repository, event);
+
+    emit({
+      method: event.requestContext.http.method,
+      path: event.rawPath,
+      statusCode: response.statusCode ?? 500,
+      durationMs: now() - startedAt,
+      coldStart,
+      requestId: event.requestContext.requestId,
+      ...(errorName === undefined ? {} : { errorName }),
+      ...options.collect?.(),
+    });
+
+    return response;
   };
+};
