@@ -12,6 +12,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 
 export type SignalStackProps = cdk.StackProps & {
@@ -23,7 +24,7 @@ export class SignalStack extends cdk.Stack {
     super(scope, id, props);
 
     const helloFunction = new lambda.Function(this, 'HelloFunction', {
-      runtime: lambda.Runtime.NODEJS_22_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       handler: 'index.handler',
       logGroup: new logs.LogGroup(this, 'HelloFunctionLogs', {
         retention: logs.RetentionDays.ONE_MONTH,
@@ -109,6 +110,7 @@ export class SignalStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: hoardKey,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
 
     new cdk.CfnOutput(this, 'CatalogueTableName', {
@@ -117,7 +119,7 @@ export class SignalStack extends cdk.Stack {
     });
 
     const catalogueFunction = new NodejsFunction(this, 'CatalogueFunction', {
-      runtime: lambda.Runtime.NODEJS_22_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       entry: 'lambda/catalogue/handler.ts',
       logGroup: new logs.LogGroup(this, 'CatalogueFunctionLogs', {
         retention: logs.RetentionDays.ONE_MONTH,
@@ -140,6 +142,13 @@ export class SignalStack extends cdk.Stack {
     const vaultKeepers = new cognito.UserPool(this, 'VaultKeepersPool', {
       selfSignUpEnabled: false,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      passwordPolicy: {
+        minLength: 12,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: true,
+      },
     });
 
     const vaultKeepersClient = vaultKeepers.addClient('VaultKeepersClient', {
@@ -151,7 +160,7 @@ export class SignalStack extends cdk.Stack {
       catalogueFunction,
     );
 
-    catalogueApi.addRoutes({
+    const [publicListRoute] = catalogueApi.addRoutes({
       path: '/shitposts',
       methods: [apigwv2.HttpMethod.GET],
       integration: catalogueIntegration,
@@ -180,5 +189,126 @@ export class SignalStack extends cdk.Stack {
       value: catalogueApi.apiEndpoint,
       description: 'Quest 2 — the gateway: GET /shitposts',
     });
+
+    NagSuppressions.addResourceSuppressions(gallery, [
+      {
+        id: 'AwsSolutions-CFR1',
+        reason:
+          'Personal archive accessed while travelling; geo restrictions would lock the owner out for no security gain.',
+      },
+      {
+        id: 'AwsSolutions-CFR2',
+        reason:
+          'WAF stack exists behind -c waf=true; ~$7/mo not justified for a single-user archive. Shield Standard, OAC and JWT-on-writes cover the threat model.',
+      },
+      {
+        id: 'AwsSolutions-CFR3',
+        reason:
+          'Access logging is Quest 4 (The Watchtower) work — deferred deliberately, not omitted. Single-user traffic until then.',
+      },
+      {
+        id: 'AwsSolutions-CFR4',
+        reason:
+          'Minimum TLS version is fixed by the default *.cloudfront.net certificate; raising it requires a custom domain + ACM cert (on the ledger).',
+      },
+    ]);
+
+    NagSuppressions.addResourceSuppressions(mediaBucket, [
+      {
+        id: 'AwsSolutions-S1',
+        reason:
+          'Read audit for the vault comes from CloudTrail KMS key-usage events; S3 server access logs would add a log bucket for one user\'s traffic.',
+      },
+    ]);
+
+    NagSuppressions.addResourceSuppressions(galleryShell, [
+      {
+        id: 'AwsSolutions-S1',
+        reason:
+          'Bucket holds one replaceable HTML file served via CloudFront; access logs of the shell have no audit value.',
+      },
+    ]);
+
+    NagSuppressions.addResourceSuppressions(publicListRoute, [
+      {
+        id: 'AwsSolutions-APIG4',
+        reason:
+          'GET /shitposts is public by design — the gallery is the product. Writes require a Cognito JWT.',
+      },
+    ]);
+
+    NagSuppressions.addResourceSuppressions(vaultKeepers, [
+      {
+        id: 'AwsSolutions-COG2',
+        reason:
+          'Single admin-created user, 12-char password policy, no self-signup. MFA lands with the real login UI (Vite app, on the ledger).',
+      },
+      {
+        id: 'AwsSolutions-COG8',
+        reason:
+          'Plus-tier threat protection is priced per MAU; the pool has one admin-created user and no self-signup.',
+      },
+    ]);
+
+    NagSuppressions.addResourceSuppressions(catalogueApi.defaultStage!, [
+      {
+        id: 'AwsSolutions-APIG1',
+        reason:
+          'Access logging is Quest 4 (The Watchtower) work — structured logs and metrics land there together.',
+      },
+    ]);
+
+    NagSuppressions.addResourceSuppressions(
+      helloFunction,
+      [
+        {
+          id: 'AwsSolutions-IAM4',
+          reason:
+            'AWSLambdaBasicExecutionRole grants CloudWatch Logs write only — the least privilege this function needs.',
+        },
+      ],
+      true,
+    );
+
+    NagSuppressions.addResourceSuppressions(
+      catalogueFunction,
+      [
+        {
+          id: 'AwsSolutions-IAM4',
+          reason:
+            'AWSLambdaBasicExecutionRole grants CloudWatch Logs write only — the least privilege this function needs.',
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: ['Action::kms:ReEncrypt*', 'Action::kms:GenerateDataKey*'],
+          reason:
+            'Canonical KMS grant shape from grantReadWriteData: the wildcards cover the WithoutPlaintext/From/To variants of two actions, scoped to the single hoard key.',
+        },
+      ],
+      true,
+    );
+
+    NagSuppressions.addResourceSuppressionsByPath(
+      this,
+      `/${this.stackName}/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C`,
+      [
+        {
+          id: 'AwsSolutions-L1',
+          reason:
+            'Runtime of the CDK-managed asset-deployment singleton is owned by aws-cdk-lib.',
+        },
+        {
+          id: 'AwsSolutions-IAM4',
+          reason:
+            'CDK-managed asset-deployment singleton uses the basic execution managed policy.',
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          reason:
+            'CDK-generated copy permissions, scoped to the CDK asset bucket and the gallery shell bucket.',
+        },
+      ],
+      true,
+    );
   }
 }
