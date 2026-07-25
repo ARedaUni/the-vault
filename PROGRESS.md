@@ -12,8 +12,8 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 650 / 1900
-- **Current quest:** Quest 3 — The Fortress
+- **XP:** 950 / 1900
+- **Current quest:** Quest 4 — The Watchtower
 
 ## 📜 Rules of the Realm
 
@@ -37,7 +37,7 @@
 | 1 | **The Hoard** | S3 media bucket, bulk upload, DynamoDB catalogue | 200 | ✅ 2026-07-19 |
 | 1.5 | **The Vault Door** | Gallery UI, CloudFront, OAC, CORS | 100 | ✅ 2026-07-20 |
 | 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | ✅ 2026-07-22 |
-| 3 | **The Fortress** | IAM least-privilege, KMS, Cognito, cdk-nag | 300 | ⚪ |
+| 3 | **The Fortress** | IAM least-privilege, KMS, Cognito, cdk-nag | 300 | ✅ 2026-07-25 |
 | 4 | **The Watchtower** | Structured logs, EMF metrics, alarms, dashboards | 200 | ⚪ |
 | 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ⚪ |
 | 5 | **The Assembly Line** | GitHub Actions, OIDC, cdk diff gates | 200 | ⚪ |
@@ -49,6 +49,22 @@
 ## 🚢 Ship Log
 
 *(newest first — every session gets a line, even the scrappy ones)*
+
+- **2026-07-25 (session 5, close) — Quest 3 COMPLETE: checkpoint PASSED
+  (+300 XP → 950/1900). Halfway point of the campaign.** First round
+  🟢🟡🟢🔴🟢🔴: banked JWKS, nailed WAF-at-layer-7, and killed the CORS
+  reflex mid-sentence ("SIKE") — the ghost is dead on its fifth appearance.
+  Missed the envelope chain (second slip) and suppression legitimacy;
+  redemption recovered both: three dolls named with homes (data key beside
+  the object ← bucket key at S3 ← HoardKey never leaving KMS), and the
+  suppression triad — threat-model reason, single-resource scope, repayment
+  condition. New machinery taught: CloudFront as generic reverse proxy
+  (any HTTPS endpoint is an origin) and the x-origin-verify pattern — the
+  secret never transits the browser, OAC for APIs. Parts 3+4 shipped same
+  session: WAF built/tested behind -c waf=true (~$7/mo not worth it, tests
+  keep it honest for free), cdk-nag as a build gate — 27 findings became
+  3 fixes (Node 24, PITR, 12-char password policy — all deployed and
+  verified live) + 24 signed suppressions. Next: The Watchtower.
 
 - **2026-07-24 (session 5) — Quest 3 parts 1+2: the membership office and the
   locksmith. 🔐** Cognito user pool (self-signup OFF — members minted by admin

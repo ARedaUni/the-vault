@@ -357,6 +357,31 @@ and get hands-on with Athena and ingestion pipelines, both named in the spec.
 - **The trade-off vs Honeycomb:** Firehose buffering (~60s) + Athena seconds-
   latency = "interactive-ish", not real-time heatmaps. Discussing exactly this
   trade-off (and when Logs Insights is enough) is interview gold.
+- **Stage 3 — Honeycomb itself (the real thing, free tier).** The three
+  backends are not competitors; they are three subscribers to the same wide
+  event, each answering a different question at a different price:
+  - **CloudWatch** = the smoke detector: "is it on fire *now*, who gets
+    paged?" (alarms are the irreplaceable bit — nothing else here pages).
+  - **Honeycomb** = the detective: "something's weird — *why*?" Sub-second
+    high-cardinality slicing + BubbleUp; the thing CloudWatch Metrics
+    structurally can't do (per-user dimensions explode cost) and Logs
+    Insights only greps at.
+  - **Athena/Parquet** = the archive: "what happened over six months, as
+    SQL?" Minutes-slow, pennies, infinite retention.
+  - **The plan:** Quest 4 designs the one-wide-JSON-event-per-request
+    emission (the asset; backends are interchangeable). Honeycomb bolts on
+    as a third subscriber for the price of an API key: forward events
+    **asynchronously off the CloudWatch log stream** (subscription filter →
+    tiny forwarder Lambda → Honeycomb events API), never from the request
+    hot path — zero added latency, unpluggable without touching the
+    catalogue Lambda. Free tier is 20M events/month; our traffic rounds to
+    zero. The API key is a secret — SSM SecureString, not an env var in
+    plain CDK.
+  - **What it buys pedagogically:** BubbleUp/heatmaps over our real
+    traffic, and the ability to compare the same debugging question asked
+    of all three backends — the sharpest possible form of the Stage 2
+    trade-off lesson. Not on the BBC spec by name; wide-event thinking is,
+    and Honeycomb is where it comes from.
 - **Sensitive-data thread continues:** wide events are a data surface — hash
   or tokenise user identifiers before they leave the Lambda.
 
