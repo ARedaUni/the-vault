@@ -3,6 +3,7 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
 import { dynamoDbShitpostRepository } from './repositories/shitposts';
 import { createShitpostsHandler } from './routes/shitposts';
+import { emfFormat } from './telemetry/emf';
 import { withRepositoryTelemetry } from './telemetry/repository-telemetry';
 
 const environment = z
@@ -17,6 +18,6 @@ const { repository, drain } = withRepositoryTelemetry(
 );
 
 export const handler = createShitpostsHandler(repository, {
-  emit: (event) => console.log(JSON.stringify(event)),
+  emit: (event) => console.log(emfFormat(event)),
   collect: drain,
 });

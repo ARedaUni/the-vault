@@ -7,6 +7,8 @@ import type { CatalogueEvent } from '../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../lambda/catalogue/domain/shitpost';
 import type { ShitpostRepository } from '../lambda/catalogue/domain/shitpost-repository';
 import { withRepositoryTelemetry } from '../lambda/catalogue/telemetry/repository-telemetry';
+import { emfFormat } from '../lambda/catalogue/telemetry/emf';
+import type { CanonicalRequestEvent } from '../lambda/catalogue/routes/shitposts';
 import {
   aShitpost,
   dynamoDbBackedRepository,
@@ -102,6 +104,68 @@ test('the canonical event carries repository timing and item count', async () =>
   expect(events).toEqual([
     expect.objectContaining({ repositoryDurationMs: 30, itemCount: 1 }),
   ]);
+});
+
+const aCanonicalEvent = (
+  overrides: Partial<CanonicalRequestEvent> = {},
+): CanonicalRequestEvent => ({
+  method: 'GET',
+  path: '/shitposts',
+  statusCode: 200,
+  durationMs: 142,
+  coldStart: false,
+  requestId: 'req-123',
+  repositoryDurationMs: 128,
+  itemCount: 91,
+  ...overrides,
+});
+
+test('the EMF line still carries every wide-event field', () => {
+  const line = JSON.parse(emfFormat(aCanonicalEvent(), { now: () => 1753500000000 }));
+
+  expect(line).toEqual(
+    expect.objectContaining({
+      method: 'GET',
+      path: '/shitposts',
+      durationMs: 142,
+      coldStart: false,
+      requestId: 'req-123',
+      repositoryDurationMs: 128,
+      itemCount: 91,
+    }),
+  );
+});
+
+test('the EMF line declares durationMs as a metric dimensioned by method and status code', () => {
+  const line = JSON.parse(emfFormat(aCanonicalEvent(), { now: () => 1753500000000 }));
+
+  expect(line._aws).toEqual({
+    Timestamp: 1753500000000,
+    CloudWatchMetrics: [
+      {
+        Namespace: 'Signal/Catalogue',
+        Dimensions: [['method', 'statusCode']],
+        Metrics: [
+          { Name: 'durationMs', Unit: 'Milliseconds' },
+          { Name: 'errorCount', Unit: 'Count' },
+        ],
+      },
+    ],
+  });
+  expect(line.statusCode).toBe('200');
+});
+
+test('a failed request counts one error; a healthy request counts zero', () => {
+  const healthy = JSON.parse(emfFormat(aCanonicalEvent(), { now: () => 0 }));
+  const failed = JSON.parse(
+    emfFormat(aCanonicalEvent({ statusCode: 500, errorName: 'ConnectionTimeout' }), {
+      now: () => 0,
+    }),
+  );
+
+  expect(healthy.errorCount).toBe(0);
+  expect(failed.errorCount).toBe(1);
+  expect(failed.errorName).toBe('ConnectionTimeout');
 });
 
 test('the DynamoDB repository rejects malformed rows at the database boundary', async () => {
