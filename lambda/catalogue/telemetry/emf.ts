@@ -15,7 +15,7 @@ export const emfFormat = (
       CloudWatchMetrics: [
         {
           Namespace: 'Signal/Catalogue',
-          Dimensions: [['method', 'statusCode']],
+          Dimensions: [['method', 'statusCode'], []],
           Metrics: [
             { Name: 'durationMs', Unit: 'Milliseconds' },
             { Name: 'errorCount', Unit: 'Count' },

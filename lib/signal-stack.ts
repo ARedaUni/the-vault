@@ -4,6 +4,7 @@ import { HttpUserPoolAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as kms from 'aws-cdk-lib/aws-kms';
@@ -188,6 +189,37 @@ export class SignalStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'CatalogueApiUrl', {
       value: catalogueApi.apiEndpoint,
       description: 'Quest 2 — the gateway: GET /shitposts',
+    });
+
+    new cloudwatch.Alarm(this, 'CatalogueErrorAlarm', {
+      alarmDescription:
+        'Any catalogue error — at Vault traffic a single error burns a third of the monthly 99.9% budget',
+      metric: new cloudwatch.Metric({
+        namespace: 'Signal/Catalogue',
+        metricName: 'errorCount',
+        statistic: cloudwatch.Stats.SUM,
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator:
+        cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    new cloudwatch.Alarm(this, 'CatalogueLatencyAlarm', {
+      alarmDescription:
+        'p99 above one second for three consecutive periods — sustained slowness, not a lone cold start',
+      metric: new cloudwatch.Metric({
+        namespace: 'Signal/Catalogue',
+        metricName: 'durationMs',
+        statistic: cloudwatch.Stats.p(99),
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 1000,
+      evaluationPeriods: 3,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
     NagSuppressions.addResourceSuppressions(gallery, [

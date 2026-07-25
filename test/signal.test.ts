@@ -367,3 +367,33 @@ test('the key rotates yearly and survives stack deletion — lose the key, lose 
     DeletionPolicy: 'Retain',
   });
 });
+
+test('any catalogue error within five minutes raises the alarm', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+    Namespace: 'Signal/Catalogue',
+    MetricName: 'errorCount',
+    Statistic: 'Sum',
+    Period: 300,
+    Threshold: 1,
+    EvaluationPeriods: 1,
+    ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+    TreatMissingData: 'notBreaching',
+  });
+});
+
+test('sustained slow requests raise the latency alarm, one slow blip does not', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+    Namespace: 'Signal/Catalogue',
+    MetricName: 'durationMs',
+    ExtendedStatistic: 'p99',
+    Period: 300,
+    Threshold: 1000,
+    EvaluationPeriods: 3,
+    ComparisonOperator: 'GreaterThanThreshold',
+    TreatMissingData: 'notBreaching',
+  });
+});
