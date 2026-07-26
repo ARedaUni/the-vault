@@ -12,8 +12,8 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 950 / 1900
-- **Current quest:** Quest 4 — The Watchtower
+- **XP:** 1150 / 1900
+- **Current quest:** Quest 4.5 — The Telescope
 
 ## 📜 Rules of the Realm
 
@@ -38,7 +38,7 @@
 | 1.5 | **The Vault Door** | Gallery UI, CloudFront, OAC, CORS | 100 | ✅ 2026-07-20 |
 | 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | ✅ 2026-07-22 |
 | 3 | **The Fortress** | IAM least-privilege, KMS, Cognito, cdk-nag | 300 | ✅ 2026-07-25 |
-| 4 | **The Watchtower** | Structured logs, EMF metrics, alarms, dashboards | 200 | ⚪ |
+| 4 | **The Watchtower** | Structured logs, EMF metrics, alarms, dashboards | 200 | ✅ 2026-07-26 |
 | 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ⚪ |
 | 5 | **The Assembly Line** | GitHub Actions, OIDC, cdk diff gates | 200 | ⚪ |
 | 6 | **The Algorithm** | Taste profile, DynamoDB Streams, For You feed | 150 | ⚪ |
@@ -49,6 +49,20 @@
 ## 🚢 Ship Log
 
 *(newest first — every session gets a line, even the scrappy ones)*
+
+- **2026-07-26 (session 6, close) — Quest 4 COMPLETE: checkpoint PASSED
+  (+200 XP → 1150/1900). 🗼** Lightning round 🟡🔴🔴🟡🟢, redemption swept
+  🟢🟢🟡. Nailed: cardinality (ghost dead on third encounter), distrust-the-
+  metric-first, detection/diagnosis doctrine with the right tools. Corrected:
+  EMF's silent failure leaves the LOGS looking healthy (only extraction
+  dies — hence the envelope tests are the only guard); a p99 spike sends you
+  to Logs Insights, not back to the graph (aggregation is a one-way door);
+  the error alarm's threshold of 1 follows from the ~3-error monthly budget
+  (thresholds follow budgets, not convention); `treatMissingData:
+  notBreaching` by name. New concept banked for a future quest: burn-rate
+  alerting — alarm on the PACE of budget spend, not after the tank is empty
+  ("alarm at 300 errors" = fuel light that comes on when empty). Open debt
+  carried forward: alarm→email SNS publish failure. Next: The Telescope. 🔭
 
 - **2026-07-26 (session 6, continued) — Quest 4 parts 5–7: the stopped watch,
   the watchtower screen, the debts repaid. 📺** Logs Insights lesson paid off
