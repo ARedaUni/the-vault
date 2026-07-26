@@ -407,6 +407,49 @@ test('the alarm topic pages the keeper by email', () => {
   });
 });
 
+test('the API stage writes structured access logs naming the request and its fate', () => {
+  const template = synthesize();
+
+  const stages = Object.values(
+    template.findResources('AWS::ApiGatewayV2::Stage'),
+  );
+  expect(stages.length).toBeGreaterThan(0);
+  stages.forEach((stage) => {
+    const accessLogSettings = stage.Properties.AccessLogSettings;
+    expect(accessLogSettings.DestinationArn).toBeDefined();
+    expect(accessLogSettings.Format).toContain('requestId');
+    expect(accessLogSettings.Format).toContain('status');
+    expect(accessLogSettings.Format).toContain('routeKey');
+  });
+});
+
+test('CloudFront delivers viewer access logs to a log bucket', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties(
+    'AWS::CloudFront::Distribution',
+    Match.objectLike({
+      DistributionConfig: Match.objectLike({
+        Logging: Match.objectLike({ Bucket: Match.anyValue() }),
+      }),
+    }),
+  );
+});
+
+test('access logs expire instead of accruing cost forever', () => {
+  const template = synthesize();
+
+  const logBuckets = Object.values(
+    template.findResources('AWS::S3::Bucket'),
+  ).filter(
+    (bucket) => bucket.Properties?.OwnershipControls?.Rules !== undefined,
+  );
+  expect(logBuckets).toHaveLength(1);
+  expect(
+    logBuckets[0].Properties.LifecycleConfiguration.Rules[0].ExpirationInDays,
+  ).toBe(90);
+});
+
 const dashboardBody = (template: Template): string => {
   const dashboards = Object.values(
     template.findResources('AWS::CloudWatch::Dashboard'),

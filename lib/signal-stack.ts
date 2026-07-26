@@ -79,8 +79,20 @@ export class SignalStack extends cdk.Stack {
       autoDeleteObjects: true,
     });
 
+    const accessLogBucket = new s3.Bucket(this, 'AccessLogBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      lifecycleRules: [{ expiration: cdk.Duration.days(90) }],
+    });
+
     const gallery = new cloudfront.Distribution(this, 'GalleryDistribution', {
       webAclId: props?.webAclArn,
+      enableLogging: true,
+      logBucket: accessLogBucket,
+      logFilePrefix: 'cloudfront/',
       defaultRootObject: 'index.html',
       defaultBehavior: {
         origin: S3BucketOrigin.withOriginAccessControl(galleryShell),
@@ -189,6 +201,27 @@ export class SignalStack extends cdk.Stack {
       value: vaultKeepersClient.userPoolClientId,
       description: 'Quest 3 — the front desk app for obtaining JWTs',
     });
+
+    const apiAccessLogs = new logs.LogGroup(this, 'CatalogueApiAccessLogs', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const defaultStage = catalogueApi.defaultStage!.node
+      .defaultChild as apigwv2.CfnStage;
+    defaultStage.accessLogSettings = {
+      destinationArn: apiAccessLogs.logGroupArn,
+      format: JSON.stringify({
+        requestId: '$context.requestId',
+        ip: '$context.identity.sourceIp',
+        requestTime: '$context.requestTime',
+        method: '$context.httpMethod',
+        routeKey: '$context.routeKey',
+        status: '$context.status',
+        responseLength: '$context.responseLength',
+        integrationError: '$context.integrationErrorMessage',
+      }),
+    };
 
     new cdk.CfnOutput(this, 'CatalogueApiUrl', {
       value: catalogueApi.apiEndpoint,
@@ -334,11 +367,6 @@ export class SignalStack extends cdk.Stack {
           'WAF stack exists behind -c waf=true; ~$7/mo not justified for a single-user archive. Shield Standard, OAC and JWT-on-writes cover the threat model.',
       },
       {
-        id: 'AwsSolutions-CFR3',
-        reason:
-          'Access logging is Quest 4 (The Watchtower) work — deferred deliberately, not omitted. Single-user traffic until then.',
-      },
-      {
         id: 'AwsSolutions-CFR4',
         reason:
           'Minimum TLS version is fixed by the default *.cloudfront.net certificate; raising it requires a custom domain + ACM cert (on the ledger).',
@@ -382,11 +410,11 @@ export class SignalStack extends cdk.Stack {
       },
     ]);
 
-    NagSuppressions.addResourceSuppressions(catalogueApi.defaultStage!, [
+    NagSuppressions.addResourceSuppressions(accessLogBucket, [
       {
-        id: 'AwsSolutions-APIG1',
+        id: 'AwsSolutions-S1',
         reason:
-          'Access logging is Quest 4 (The Watchtower) work — structured logs and metrics land there together.',
+          'This is the access-log bucket; logging its own reads would recurse forever. Writes are restricted to the CloudFront log delivery service.',
       },
     ]);
 
