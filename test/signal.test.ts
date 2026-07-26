@@ -483,6 +483,43 @@ test('the dashboard leads with pager state and stays at five widgets', () => {
   );
 });
 
+test('the telescope catalogues wide events as a Parquet table Athena can query', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties(
+    'AWS::Glue::Table',
+    Match.objectLike({
+      TableInput: Match.objectLike({
+        TableType: 'EXTERNAL_TABLE',
+        StorageDescriptor: Match.objectLike({
+          SerdeInfo: Match.objectLike({
+            SerializationLibrary:
+              'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe',
+          }),
+          Columns: Match.arrayWith([
+            Match.objectLike({ Name: 'statuscode' }),
+            Match.objectLike({ Name: 'durationms' }),
+            Match.objectLike({ Name: 'requestid' }),
+            Match.objectLike({ Name: 'errorname' }),
+          ]),
+        }),
+      }),
+    }),
+  );
+});
+
+test('the analytics bucket writes its own access logs to the shared log bucket', () => {
+  const template = synthesize();
+
+  const loggedBuckets = Object.values(
+    template.findResources('AWS::S3::Bucket'),
+  ).filter((bucket) => bucket.Properties?.LoggingConfiguration !== undefined);
+  expect(loggedBuckets).toHaveLength(1);
+  expect(
+    loggedBuckets[0].Properties.LoggingConfiguration.DestinationBucketName,
+  ).toBeDefined();
+});
+
 test('every alarm publishes to the alarm topic when it fires', () => {
   const template = synthesize();
 

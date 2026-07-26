@@ -19,6 +19,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
+import { Telescope } from './telescope';
 
 export type SignalStackProps = cdk.StackProps & {
   webAclArn?: string;
@@ -276,12 +277,14 @@ export class SignalStack extends cdk.Stack {
     const catalogueMetric = (
       metricName: string,
       statistic: string,
+      options: { dimensionsMap?: Record<string, string>; label?: string } = {},
     ): cloudwatch.Metric =>
       new cloudwatch.Metric({
         namespace: 'Signal/Catalogue',
         metricName,
         statistic,
         period: cdk.Duration.minutes(5),
+        ...options,
       });
 
     const dashboard = new cloudwatch.Dashboard(this, 'VaultDashboard', {
@@ -313,19 +316,11 @@ export class SignalStack extends cdk.Stack {
       new cloudwatch.GraphWidget({
         title: 'Traffic by method and status',
         left: [
-          new cloudwatch.Metric({
-            namespace: 'Signal/Catalogue',
-            metricName: 'errorCount',
-            statistic: cloudwatch.Stats.SAMPLE_COUNT,
-            period: cdk.Duration.minutes(5),
+          catalogueMetric('errorCount', cloudwatch.Stats.SAMPLE_COUNT, {
             dimensionsMap: { method: 'GET', statusCode: '200' },
             label: 'GET 200',
           }),
-          new cloudwatch.Metric({
-            namespace: 'Signal/Catalogue',
-            metricName: 'errorCount',
-            statistic: cloudwatch.Stats.SAMPLE_COUNT,
-            period: cdk.Duration.minutes(5),
+          catalogueMetric('errorCount', cloudwatch.Stats.SAMPLE_COUNT, {
             dimensionsMap: { method: 'POST', statusCode: '201' },
             label: 'POST 201',
           }),
@@ -353,6 +348,13 @@ export class SignalStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'DashboardName', {
       value: dashboard.dashboardName,
       description: 'Quest 4 — the watchtower: one screen for the 3am question',
+    });
+
+    const telescope = new Telescope(this, 'Telescope', { accessLogBucket });
+
+    new cdk.CfnOutput(this, 'AnalyticsBucketName', {
+      value: telescope.analyticsBucket.bucketName,
+      description: 'Quest 4.5 — the telescope: wide events archived as Parquet',
     });
 
     NagSuppressions.addResourceSuppressions(gallery, [
