@@ -50,6 +50,51 @@
 
 *(newest first — every session gets a line, even the scrappy ones)*
 
+- **2026-07-26 (session 6, continued) — Quest 4 parts 5–7: the stopped watch,
+  the watchtower screen, the debts repaid. 📺** Logs Insights lesson paid off
+  immediately: querying the live breakage data exposed a real observability
+  bug — failed requests showed `repositoryDurationMs: 0` because the decorator
+  only recorded after a successful await, so the 840ms spent waiting for IAM
+  to say no was invisible. TDD'd the fix (duration in `finally`, items on
+  success). Then the five-widget golden-signals dashboard as code: alarm
+  state top-left, errors, p50-vs-p99 (the tail made visible — p99 spiked to
+  1.1s on cold starts while p50 barely moved), traffic via the SampleCount
+  trick (every request emits errorCount, so its sample count IS request
+  count), saturation from free Lambda/DynamoDB metrics; tests pin the
+  five-widget budget and alarm-first ordering. Finally repaid the two
+  suppressions that named Quest 4 as their due date: real API Gateway access
+  logs (JSON to CloudWatch, 30-day retention — the gateway sees the 401s/404s
+  the Lambda never receives) and CloudFront viewer logs to a dedicated S3
+  bucket (90-day expiry — the future Athena data source). APIG1 + CFR3
+  suppressions deleted; one honest S1 added (log buckets can't log
+  themselves). 73/73 green. Undeployed: part 7. Remaining: push, checkpoint.
+
+- **2026-07-25 (session 6) — Quest 4 parts 1–4: the Watchtower is LIVE and
+  the smoke detector proved itself. 🚨** Validated folder structure against
+  bedrock-chat (routes/usecases/repositories match name-for-name; our
+  domain/ is a stricter hexagon) then fixed a connascence-of-identity bug:
+  decorator and drain must be the same instance, so the factory now returns
+  the married pair — illegal states unrepresentable. EMF taught and TDD'd
+  (customs declaration on the parcel: `_aws` envelope, metrics extracted at
+  ingestion, zero API calls, log and metric can never disagree; dimensions
+  stay low-cardinality, requestId stays in the parcel). SLO chosen: 99.9%
+  per 30 days — at Vault traffic that's a ~3-error monthly budget, so the
+  error alarm fires on the FIRST error (Sum ≥ 1 per 5 min) and latency on
+  p99 > 1s for 3 consecutive periods; `treatMissingData: notBreaching`
+  because quiet nights have no datapoints, not failures. SNS pager topic
+  (masterKey + enforceSSL — SNS2/SNS3 fixed, not suppressed). Deployed and
+  ran the deliberate-breakage ceremony: pointed the Lambda at
+  TableThatDoesNotExist → AccessDeniedException 500s (IAM refused before
+  DynamoDB checked existence — least privilege demonstrated), wide events
+  told the story, CatalogueErrorAlarm → ALARM in 5 minutes, healed by
+  restoring the env var (drift lesson: cdk deploy diffs templates, not
+  reality — it cannot see console/CLI drift). **Open debt: the alarm's SNS
+  publish failed ("Failed to execute action") — the pager never emailed.
+  Prime suspect: topic access policy missing sns:Publish for
+  cloudwatch.amazonaws.com. Deferred, not forgotten.** Cold-start anatomy
+  captured live: 1041ms total / 802ms repository (SDK first-connection
+  ceremony), warm 6–42ms.
+
 - **2026-07-25 (session 5, close) — Quest 3 COMPLETE: checkpoint PASSED
   (+300 XP → 950/1900). Halfway point of the campaign.** First round
   🟢🟡🟢🔴🟢🔴: banked JWKS, nailed WAF-at-layer-7, and killed the CORS
@@ -220,6 +265,18 @@
   (The Vault + The Algorithm; see roadmap).
 
 ## 🧠 Learnings
+
+- **Metrics for detection, logs for diagnosis.** Aggregation is a one-way
+  door: the p99 line can say THAT you're slow, never WHICH requests or WHY —
+  everything not on the EMF declaration was thrown away at extraction. The
+  dashboard points at the fire; Logs Insights reads the individual parcels
+  (still holding requestId, errorName, itemCount) to find the cause. Corollary:
+  requestId can never be a metric dimension — per-request series balloon the
+  bill (caught twice; exam material).
+- **The time a dependency spends failing is the most important time to
+  measure.** Recording duration only on the success path made an 840ms IAM
+  refusal look like 0ms of repository time. Stopwatches belong in `finally`.
+  You find the gaps in your instruments by using them, not by writing them.
 
 - **CloudFront is a chain of newspaper kiosks.** The origin is one sealed
   warehouse; ~600 edge kiosks keep shelf copies governed by TTL — S3 never
