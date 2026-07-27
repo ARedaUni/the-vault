@@ -11,6 +11,7 @@ import { Construct } from 'constructs';
 
 export type TelescopeProps = {
   accessLogBucket: s3.IBucket;
+  wideEventLogGroup: logs.ILogGroup;
 };
 
 const WIDE_EVENTS_PREFIX = 'wide-events/';
@@ -168,6 +169,28 @@ export class Telescope extends Construct {
       },
     });
     this.deliveryStream.node.addDependency(deliveryRole);
+
+    const subscriptionRole = new iam.Role(this, 'SubscriptionRole', {
+      assumedBy: new iam.ServicePrincipal('logs.amazonaws.com'),
+    });
+    subscriptionRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['firehose:PutRecord', 'firehose:PutRecordBatch'],
+        resources: [this.deliveryStream.attrArn],
+      }),
+    );
+
+    const subscription = new logs.CfnSubscriptionFilter(
+      this,
+      'WideEventSubscription',
+      {
+        logGroupName: props.wideEventLogGroup.logGroupName,
+        destinationArn: this.deliveryStream.attrArn,
+        roleArn: subscriptionRole.roleArn,
+        filterPattern: '',
+      },
+    );
+    subscription.node.addDependency(subscriptionRole);
 
     NagSuppressions.addResourceSuppressions(
       deliveryRole,

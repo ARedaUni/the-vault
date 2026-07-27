@@ -136,13 +136,15 @@ export class SignalStack extends cdk.Stack {
       description: 'Quest 1 — the catalogue: meme metadata + signals',
     });
 
+    const catalogueLogs = new logs.LogGroup(this, 'CatalogueFunctionLogs', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     const catalogueFunction = new NodejsFunction(this, 'CatalogueFunction', {
       runtime: lambda.Runtime.NODEJS_24_X,
       entry: 'lambda/catalogue/handler.ts',
-      logGroup: new logs.LogGroup(this, 'CatalogueFunctionLogs', {
-        retention: logs.RetentionDays.ONE_MONTH,
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-      }),
+      logGroup: catalogueLogs,
       environment: {
         CATALOGUE_TABLE_NAME: catalogueTable.tableName,
       },
@@ -350,7 +352,10 @@ export class SignalStack extends cdk.Stack {
       description: 'Quest 4 — the watchtower: one screen for the 3am question',
     });
 
-    const telescope = new Telescope(this, 'Telescope', { accessLogBucket });
+    const telescope = new Telescope(this, 'Telescope', {
+      accessLogBucket,
+      wideEventLogGroup: catalogueLogs,
+    });
 
     new cdk.CfnOutput(this, 'AnalyticsBucketName', {
       value: telescope.analyticsBucket.bucketName,

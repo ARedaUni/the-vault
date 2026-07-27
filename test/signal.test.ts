@@ -583,6 +583,20 @@ test('failed conversions land in an errors prefix instead of vanishing', () => {
   );
 });
 
+test('the catalogue log group streams into the firehose via a subscription filter', () => {
+  const template = synthesize();
+
+  const filters = Object.values(
+    template.findResources('AWS::Logs::SubscriptionFilter'),
+  );
+  expect(filters).toHaveLength(1);
+  expect(filters[0].Properties.DestinationArn).toBeDefined();
+  expect(filters[0].Properties.RoleArn).toBeDefined();
+  expect(filters[0].Properties.LogGroupName.Ref).toMatch(
+    /CatalogueFunctionLogs/,
+  );
+});
+
 test('the analytics bucket writes its own access logs to the shared log bucket', () => {
   const template = synthesize();
 
