@@ -6,6 +6,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 
 export type TelescopeProps = {
@@ -83,8 +84,28 @@ export class Telescope extends Construct {
     const deliveryRole = new iam.Role(this, 'DeliveryRole', {
       assumedBy: new iam.ServicePrincipal('firehose.amazonaws.com'),
     });
-    this.analyticsBucket.grantReadWrite(deliveryRole);
-    unwrapFunction.grantInvoke(deliveryRole);
+    deliveryRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          's3:AbortMultipartUpload',
+          's3:GetBucketLocation',
+          's3:GetObject',
+          's3:ListBucket',
+          's3:ListBucketMultipartUploads',
+          's3:PutObject',
+        ],
+        resources: [
+          this.analyticsBucket.bucketArn,
+          this.analyticsBucket.arnForObjects('*'),
+        ],
+      }),
+    );
+    deliveryRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['lambda:InvokeFunction'],
+        resources: [unwrapFunction.functionArn],
+      }),
+    );
     deliveryRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ['glue:GetTable', 'glue:GetTableVersion', 'glue:GetTableVersions'],
@@ -106,6 +127,7 @@ export class Telescope extends Construct {
 
     this.deliveryStream = new firehose.CfnDeliveryStream(this, 'WideEventDelivery', {
       deliveryStreamType: 'DirectPut',
+      deliveryStreamEncryptionConfigurationInput: { keyType: 'AWS_OWNED_CMK' },
       extendedS3DestinationConfiguration: {
         bucketArn: this.analyticsBucket.bucketArn,
         roleArn: deliveryRole.roleArn,
@@ -146,5 +168,30 @@ export class Telescope extends Construct {
       },
     });
     this.deliveryStream.node.addDependency(deliveryRole);
+
+    NagSuppressions.addResourceSuppressions(
+      deliveryRole,
+      [
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: ['Resource::<TelescopeAnalyticsBucket60E4BDCC.Arn>/*'],
+          reason:
+            'Firehose invents timestamped object keys at write time — future keys cannot be enumerated, so the object-level wildcard under the analytics bucket is inherent to S3 delivery.',
+        },
+      ],
+      true,
+    );
+
+    NagSuppressions.addResourceSuppressions(
+      unwrapFunction,
+      [
+        {
+          id: 'AwsSolutions-IAM4',
+          reason:
+            'AWSLambdaBasicExecutionRole grants CloudWatch Logs write only — the least privilege this function needs.',
+        },
+      ],
+      true,
+    );
   }
 }
