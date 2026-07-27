@@ -8,8 +8,8 @@ import type { Shitpost } from '../lambda/catalogue/domain/shitpost';
 import type { ShitpostRepository } from '../lambda/catalogue/domain/shitpost-repository';
 import { withRepositoryTelemetry } from '../lambda/catalogue/telemetry/repository-telemetry';
 import { emfFormat } from '../lambda/catalogue/telemetry/emf';
-import type { CanonicalRequestEvent } from '../lambda/catalogue/routes/shitposts';
 import {
+  aCanonicalEvent,
   aShitpost,
   dynamoDbBackedRepository,
   inMemoryRepository,
@@ -124,20 +124,6 @@ test('the canonical event carries repository timing and item count', async () =>
   expect(events).toEqual([
     expect.objectContaining({ repositoryDurationMs: 30, itemCount: 1 }),
   ]);
-});
-
-const aCanonicalEvent = (
-  overrides: Partial<CanonicalRequestEvent> = {},
-): CanonicalRequestEvent => ({
-  method: 'GET',
-  path: '/shitposts',
-  statusCode: 200,
-  durationMs: 142,
-  coldStart: false,
-  requestId: 'req-123',
-  repositoryDurationMs: 128,
-  itemCount: 91,
-  ...overrides,
 });
 
 test('the EMF line still carries every wide-event field', () => {

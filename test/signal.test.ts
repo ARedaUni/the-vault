@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { SignalStack } from '../lib/signal-stack';
+import { aCanonicalEvent } from './support/catalogue';
 
 const synthesize = () => {
   const app = new cdk.App();
@@ -503,6 +504,80 @@ test('the telescope catalogues wide events as a Parquet table Athena can query',
             Match.objectLike({ Name: 'errorname' }),
           ]),
         }),
+      }),
+    }),
+  );
+});
+
+test('the Glue schema stays in lock-step with the wide event the catalogue emits', () => {
+  const template = synthesize();
+
+  const tables = Object.values(template.findResources('AWS::Glue::Table'));
+  expect(tables).toHaveLength(1);
+  const columnNames = tables[0].Properties.TableInput.StorageDescriptor.Columns.map(
+    (column: { Name: string }) => column.Name,
+  );
+
+  const emittedFields = Object.keys(
+    aCanonicalEvent({ errorName: 'RepositoryUnavailable' }),
+  ).map((field) => field.toLowerCase());
+  const addedByUnwrap = ['timestamp'];
+
+  expect([...columnNames].sort()).toEqual(
+    [...emittedFields, ...addedByUnwrap].sort(),
+  );
+});
+
+test('the firehose converts incoming JSON to Parquet against the Glue schema', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties(
+    'AWS::KinesisFirehose::DeliveryStream',
+    Match.objectLike({
+      ExtendedS3DestinationConfiguration: Match.objectLike({
+        DataFormatConversionConfiguration: Match.objectLike({
+          Enabled: true,
+          InputFormatConfiguration: {
+            Deserializer: { OpenXJsonSerDe: Match.anyValue() },
+          },
+          OutputFormatConfiguration: {
+            Serializer: { ParquetSerDe: Match.anyValue() },
+          },
+          SchemaConfiguration: Match.objectLike({
+            TableName: Match.anyValue(),
+          }),
+        }),
+      }),
+    }),
+  );
+});
+
+test('the firehose runs every record through the unwrap lambda before conversion', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties(
+    'AWS::KinesisFirehose::DeliveryStream',
+    Match.objectLike({
+      ExtendedS3DestinationConfiguration: Match.objectLike({
+        ProcessingConfiguration: Match.objectLike({
+          Enabled: true,
+          Processors: Match.arrayWith([
+            Match.objectLike({ Type: 'Lambda' }),
+          ]),
+        }),
+      }),
+    }),
+  );
+});
+
+test('failed conversions land in an errors prefix instead of vanishing', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties(
+    'AWS::KinesisFirehose::DeliveryStream',
+    Match.objectLike({
+      ExtendedS3DestinationConfiguration: Match.objectLike({
+        ErrorOutputPrefix: Match.stringLikeRegexp('errors/'),
       }),
     }),
   );

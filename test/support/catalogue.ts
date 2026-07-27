@@ -6,8 +6,23 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { dynamoDbShitpostRepository } from '../../lambda/catalogue/repositories/shitposts';
+import type { CanonicalRequestEvent } from '../../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../../lambda/catalogue/domain/shitpost';
 import type { ShitpostRepository } from '../../lambda/catalogue/domain/shitpost-repository';
+
+export const aCanonicalEvent = (
+  overrides: Partial<CanonicalRequestEvent> = {},
+): CanonicalRequestEvent => ({
+  method: 'GET',
+  path: '/shitposts',
+  statusCode: 200,
+  durationMs: 142,
+  coldStart: false,
+  requestId: 'req-123',
+  repositoryDurationMs: 128,
+  itemCount: 91,
+  ...overrides,
+});
 
 export const aShitpost = (overrides: Partial<Shitpost> = {}): Shitpost => ({
   shitpostKey: 'media/default.png',
