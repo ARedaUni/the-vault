@@ -4,7 +4,19 @@ import {
   QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { shitpostSchema } from '../domain/shitpost';
+import type { Shitpost } from '../domain/shitpost';
 import type { ShitpostRepository } from '../domain/shitpost-repository';
+
+const SHITPOST_PARTITION = 'SHITPOST';
+
+const toShitpost = (item: Record<string, unknown>): Shitpost =>
+  shitpostSchema.parse({ shitpostKey: item.SK, uploadedAt: item.uploadedAt });
+
+const toItem = (shitpost: Shitpost): Record<string, unknown> => ({
+  PK: SHITPOST_PARTITION,
+  SK: shitpost.shitpostKey,
+  uploadedAt: shitpost.uploadedAt,
+});
 
 export const dynamoDbShitpostRepository = (options: {
   client: DynamoDBDocumentClient;
@@ -15,24 +27,18 @@ export const dynamoDbShitpostRepository = (options: {
       new QueryCommand({
         TableName: options.tableName,
         KeyConditionExpression: 'PK = :pk',
-        ExpressionAttributeValues: { ':pk': 'SHITPOST' },
+        ExpressionAttributeValues: { ':pk': SHITPOST_PARTITION },
       }),
     );
 
-    return (result.Items ?? []).map((item) =>
-      shitpostSchema.parse({ shitpostKey: item.SK, uploadedAt: item.uploadedAt }),
-    );
+    return (result.Items ?? []).map(toShitpost);
   },
 
   save: async (shitpost) => {
     await options.client.send(
       new PutCommand({
         TableName: options.tableName,
-        Item: {
-          PK: 'SHITPOST',
-          SK: shitpost.shitpostKey,
-          uploadedAt: shitpost.uploadedAt,
-        },
+        Item: toItem(shitpost),
       }),
     );
   },
