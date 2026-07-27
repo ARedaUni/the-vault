@@ -15,9 +15,13 @@ type LogsEnvelope = {
   logEvents: readonly { timestamp: number; message: string }[];
 };
 
-const parseJsonObject = (candidate: string): Record<string, unknown> | undefined => {
+const parseJsonObject = (message: string): Record<string, unknown> | undefined => {
+  const jsonStart = message.indexOf('{');
+  if (jsonStart === -1) {
+    return undefined;
+  }
   try {
-    const parsed: unknown = JSON.parse(candidate);
+    const parsed: unknown = JSON.parse(message.slice(jsonStart));
     return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : undefined;

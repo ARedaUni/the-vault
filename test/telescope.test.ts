@@ -47,6 +47,29 @@ test('unwraps gzipped log events into newline-delimited wide events stamped with
   ]);
 });
 
+test('unwraps a wide event carrying the Node runtime console.log prefix, as captured from the live log group', async () => {
+  const capturedMessage =
+    '2026-07-27T17:14:38.750Z\t54cdfca9-fdcb-49ed-8200-faf68a024e46\tINFO\t{"method":"GET","path":"/shitposts","statusCode":"200","durationMs":1144,"coldStart":true,"requestId":"BLO_mh-prPEEJdw=","repositoryDurationMs":923,"itemCount":91,"errorCount":0,"_aws":{"Timestamp":1785172478750,"CloudWatchMetrics":[{"Namespace":"Signal/Catalogue","Dimensions":[["method","statusCode"],[]],"Metrics":[{"Name":"durationMs","Unit":"Milliseconds"},{"Name":"errorCount","Unit":"Count"}]}]}}\n';
+
+  const response = await handler({
+    records: [
+      aFirehoseRecord('r1', {
+        logEvents: [{ timestamp: 1785172478750, message: capturedMessage }],
+      }),
+    ],
+  });
+
+  expect(response.records[0]).toMatchObject({ recordId: 'r1', result: 'Ok' });
+  const line = JSON.parse(decoded(response.records[0].data ?? '').trim());
+  expect(line).toMatchObject({
+    method: 'GET',
+    path: '/shitposts',
+    durationMs: 1144,
+    coldStart: true,
+    timestamp: 1785172478750,
+  });
+});
+
 test('drops Lambda runtime noise, keeping only lines that parse as JSON', async () => {
   const response = await handler({
     records: [
