@@ -12,8 +12,8 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 1150 / 1900
-- **Current quest:** Quest 4.5 — The Telescope
+- **XP:** 1350 / 1900
+- **Current quest:** Quest 5 — The Assembly Line
 
 ## 📜 Rules of the Realm
 
@@ -39,7 +39,7 @@
 | 2 | **The Gateway** | API Gateway, Zod, hexagonal refactor | 250 | ✅ 2026-07-22 |
 | 3 | **The Fortress** | IAM least-privilege, KMS, Cognito, cdk-nag | 300 | ✅ 2026-07-25 |
 | 4 | **The Watchtower** | Structured logs, EMF metrics, alarms, dashboards | 200 | ✅ 2026-07-26 |
-| 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ⚪ |
+| 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ✅ 2026-07-28 |
 | 5 | **The Assembly Line** | GitHub Actions, OIDC, cdk diff gates | 200 | ⚪ |
 | 6 | **The Algorithm** | Taste profile, DynamoDB Streams, For You feed | 150 | ⚪ |
 | 🐉 | **Boss Fight** | Mock BBC interview — defend every choice | 200 | ⚪ |
@@ -50,6 +50,21 @@
 
 *(newest first — every session gets a line, even the scrappy ones)*
 
+- **2026-07-28 (session 7, close) — Quest 4.5 COMPLETE: checkpoint PASSED
+  (+200 XP → 1350/1900). 🔭** The Telescope live end-to-end: catalogue wide
+  events → log subscription → Firehose → unwrap Lambda → Parquet → S3 →
+  Glue → Athena. First query answered (15 requests, avg 105ms, 1 cold
+  start) scanning 289 bytes — per-byte pricing taught on a real receipt.
+  Built as an L3 construct from line one (god-constructor remedy applied
+  into the change); coupling audit mid-quest birthed the Glue↔wide-event
+  contract test. **Production bug shipped and caught:** unit tests green,
+  pipeline dropped 100% of events — the Node runtime prefixes console.log
+  with `timestamp<TAB>requestId<TAB>INFO<TAB>`, killing JSON.parse; fix
+  parses from the first `{`, guarded by a fixture captured verbatim from
+  the live log group. Exam 60/100 first round (🟡🟢🟢🔴🟡), redemption
+  swept 🟢🟢 (DefaultPolicy race; precompute-offline/read-online split).
+  Debt carried: SNS alarm email, burn-rate alerting, Athena workgroup +
+  date partitions, `as LogsEnvelope` Zod. Next: The Assembly Line. 🏭
 - **2026-07-26 (session 6, close) — Quest 4 COMPLETE: checkpoint PASSED
   (+200 XP → 1150/1900). 🗼** Lightning round 🟡🔴🔴🟡🟢, redemption swept
   🟢🟢🟡. Nailed: cardinality (ghost dead on third encounter), distrust-the-
@@ -280,6 +295,27 @@
 
 ## 🧠 Learnings
 
+- **A boundary you don't own needs a captured fixture, not an invented one.**
+  Five green unit tests; production dropped 100% of wide events. The
+  hand-rolled CloudWatch envelope omitted what the docs never mention: Node's
+  runtime prefixes every console.log with `timestamp<TAB>requestId<TAB>INFO<TAB>`.
+  Contract tests work between parties you control; against AWS, paste a real
+  payload from the live log group into the test — the mock can't lie if it
+  IS production.
+- **CDK grants live in a separate DefaultPolicy resource, and some services
+  check their permissions at creation time.** Referencing `roleArn` makes
+  CloudFormation wait for the Role only — which can exist while still empty.
+  Firehose validates on create → race. `node.addDependency(role)` on the
+  whole construct waits for the role AND its children.
+- **A data lake is one durable store wearing three disposable services.**
+  Delete Glue (metadata), Athena (stateless), or Firehose (minutes of
+  buffer) and no data is lost; only S3 is stateful. Parquet is columnar so
+  Athena — billed per byte SCANNED, not compute — reads only the columns the
+  query names (289 bytes from a 1,824-byte file on the first query).
+- **Precompute offline, read online.** Athena aggregates slowly-and-cheaply
+  once (nightly `GROUP BY tag` = taste profile); the result lands in DynamoDB
+  under `USER#ali` for 5ms hot-path reads. That split — batch brain, fast
+  memory — is the backbone of every recommender.
 - **Metrics for detection, logs for diagnosis.** Aggregation is a one-way
   door: the p99 line can say THAT you're slow, never WHICH requests or WHY —
   everything not on the EMF declaration was thrown away at extraction. The
