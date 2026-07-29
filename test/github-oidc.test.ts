@@ -31,7 +31,7 @@ test('only workflows on the-vault main branch can assume the deploy role', () =>
             StringEquals: Match.objectLike({
               'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
               'token.actions.githubusercontent.com:sub':
-                'repo:ARedaUni/the-vault:ref:refs/heads/main',
+                'repo:ARedaUni@124036817/the-vault@1305146249:ref:refs/heads/main',
             }),
           },
         }),

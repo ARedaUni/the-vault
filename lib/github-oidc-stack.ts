@@ -4,7 +4,8 @@ import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 
 const GITHUB_TOKEN_ISSUER = 'token.actions.githubusercontent.com';
-const DEPLOYABLE_WORKFLOWS = 'repo:ARedaUni/the-vault:ref:refs/heads/main';
+const DEPLOYABLE_WORKFLOWS =
+  'repo:ARedaUni@124036817/the-vault@1305146249:ref:refs/heads/main';
 
 export class GithubOidcStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
