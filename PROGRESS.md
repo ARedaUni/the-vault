@@ -12,8 +12,8 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 1350 / 1900
-- **Current quest:** Quest 5 — The Assembly Line
+- **XP:** 1550 / 1900
+- **Current quest:** Quest 6 — The Algorithm
 
 ## 📜 Rules of the Realm
 
@@ -40,7 +40,7 @@
 | 3 | **The Fortress** | IAM least-privilege, KMS, Cognito, cdk-nag | 300 | ✅ 2026-07-25 |
 | 4 | **The Watchtower** | Structured logs, EMF metrics, alarms, dashboards | 200 | ✅ 2026-07-26 |
 | 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ✅ 2026-07-28 |
-| 5 | **The Assembly Line** | GitHub Actions, OIDC, cdk diff gates | 200 | ⚪ |
+| 5 | **The Assembly Line** | GitHub Actions, OIDC, cdk diff gates | 200 | ✅ 2026-07-30 |
 | 6 | **The Algorithm** | Taste profile, DynamoDB Streams, For You feed | 150 | ⚪ |
 | 🐉 | **Boss Fight** | Mock BBC interview — defend every choice | 200 | ⚪ |
 
@@ -50,6 +50,24 @@
 
 *(newest first — every session gets a line, even the scrappy ones)*
 
+- **2026-07-30 (session 8, close) — Quest 5 COMPLETE: checkpoint PASSED
+  (+200 XP → 1550/1900). 🏭** The Vault deploys itself: push to main →
+  tests → OIDC handshake → cdk diff → deploy, no stored credentials
+  anywhere. `GithubOidcStack` TDD'd (provider, deploy role, nag-clean):
+  trust policy pins repo+branch with StringEquals; the role's only power
+  is assuming the `cdk-*` bootstrap roles (two-door design). Researched
+  the professional landscape first — AWS's own sample construct fails
+  its industry's hardening guides (AdministratorAccess on the CI role,
+  `ForAllValues` in an Allow, `repo:*` default filter); ours is stricter
+  than the official example. **First automated deploy failed live:**
+  `Not authorized to perform sts:AssumeRoleWithWebIdentity` — CloudTrail
+  showed the real sub claim carries immutable numeric IDs
+  (`repo:ARedaUni@124036817/the-vault@1305146249:...`), which no guide
+  documents yet. RED→GREEN on the pin, redeploy, rerun: every step green;
+  keyring retired. Exam 🟡🔴🟡🟡🔴 first round, redemption 🟢🟡 (CloudTrail
+  ground truth; `needs:` structural gate). Debt carried: `needs:` refactor
+  to one workflow, Environments approval gate, SHA-pinned actions,
+  read-only diff role for PRs. Next: The Algorithm. 🧮
 - **2026-07-28 (session 7, close) — Quest 4.5 COMPLETE: checkpoint PASSED
   (+200 XP → 1350/1900). 🔭** The Telescope live end-to-end: catalogue wide
   events → log subscription → Firehose → unwrap Lambda → Parquet → S3 →
@@ -295,6 +313,30 @@
 
 ## 🧠 Learnings
 
+- **OIDC removes the secret instead of hiding it better.** An access key in
+  repo secrets is a permanent password in someone else's cloud; OIDC stores
+  nothing — GitHub signs a per-run passport (repo, branch, immutable IDs)
+  and STS trades it for a one-hour keycard, but only if the trust policy's
+  `StringEquals` matches exactly. The role ARN in secrets is an address,
+  not a credential.
+- **When three configs all look correct, stop guessing and pull the evidence.**
+  Trust policy, repo casing, provider — all verified "right" — yet STS said
+  no. CloudTrail logs the rejected `AssumeRoleWithWebIdentity` WITH the
+  actual sub the token carried: GitHub now embeds immutable numeric IDs
+  (`ARedaUni@124036817`) that no guide documents. Same doctrine as the
+  captured fixture: production's own record beats reasoning from docs.
+  Bonus: pinning IDs beats pinning names — names are reusable after account
+  deletion, IDs never.
+- **The CI role opens the lobby, not the vault.** Its single permission is
+  `sts:AssumeRole` on the `cdk-*` bootstrap roles; the heavy permissions
+  live behind that second door, pre-installed by `cdk bootstrap`. Leaked
+  badge = "whatever a CDK deploy can do, one hour, from main only" — never
+  direct S3/DynamoDB access. AWS's own sample attaches AdministratorAccess;
+  don't copy the vendor's homework.
+- **A gate you don't enforce is a decoration.** Two workflows racing on the
+  same push means deploy merely HOPES CI passed; either duplicate the tests
+  in the deploy job (our v1) or make it structural with `needs:` in one
+  workflow — GitHub keeps no dependency graph between separate files.
 - **A boundary you don't own needs a captured fixture, not an invented one.**
   Five green unit tests; production dropped 100% of wide events. The
   hand-rolled CloudWatch envelope omitted what the docs never mention: Node's
