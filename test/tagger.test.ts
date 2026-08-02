@@ -100,6 +100,21 @@ describe('bedrock vision tagger', () => {
     expect(tags).toEqual(['cats', 'funny', 'spongebob']);
   });
 
+  it('tolerates the array arriving wrapped in a markdown code fence', async () => {
+    const { client } = capturingClient('```json\n["cats","funny"]\n```');
+    const tagger = bedrockVisionTagger({
+      client,
+      model: 'anthropic.claude-haiku-4-5',
+    });
+
+    const tags = await tagger.suggestTags({
+      bytes: new Uint8Array([1]),
+      mediaType: 'image/png',
+    });
+
+    expect(tags).toEqual(['cats', 'funny']);
+  });
+
   it('rejects a reply that is not a JSON array of tags', async () => {
     const { client } = capturingClient('Sure! Here are some tags: cats, funny');
     const tagger = bedrockVisionTagger({

@@ -72,6 +72,7 @@ export const bedrockVisionTagger = (options: {
       throw new Error('vision model returned no text block');
     }
 
-    return tagsSchema.parse(JSON.parse(text));
+    const unfenced = text.replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, '');
+    return tagsSchema.parse(JSON.parse(unfenced));
   },
 });
