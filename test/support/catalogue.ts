@@ -41,7 +41,10 @@ export const inMemoryRepository = (
   return {
     findAll: async () => stored,
     save: async (shitpost) => {
-      stored = [...stored, shitpost];
+      stored = [
+        ...stored.filter((s) => s.shitpostKey !== shitpost.shitpostKey),
+        shitpost,
+      ];
     },
   };
 };
