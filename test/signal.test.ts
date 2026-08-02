@@ -733,3 +733,22 @@ test('the tagger may read the media bucket to fetch image bytes', () => {
     },
   });
 });
+
+test('the tagger listens to the stream but is only woken by inserted shitposts', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
+    MaximumRetryAttempts: 3,
+    BisectBatchOnFunctionError: true,
+    FilterCriteria: {
+      Filters: [
+        {
+          Pattern: JSON.stringify({
+            eventName: ['INSERT'],
+            dynamodb: { Keys: { PK: { S: ['SHITPOST'] } } },
+          }),
+        },
+      ],
+    },
+  });
+});

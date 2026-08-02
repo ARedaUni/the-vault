@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { dynamoDbShitpostRepository } from '../catalogue/repositories/shitposts';
 import { bedrockVisionTagger } from './repositories/bedrock-vision';
 import { s3MediaStore } from './repositories/s3-media';
+import { createStreamTagger } from './tag-inserted';
+import type { StreamRecord } from './tag-inserted';
 import { createBackfillTags } from './usecases/backfill-tags';
 import type { BackfillSummary } from './usecases/backfill-tags';
 
@@ -19,7 +21,7 @@ const env = envSchema.parse(process.env);
 
 const bedrock = new AnthropicBedrock();
 
-const backfillTags = createBackfillTags({
+const ports = {
   shitposts: dynamoDbShitpostRepository({
     client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
     tableName: env.CATALOGUE_TABLE_NAME,
@@ -32,9 +34,18 @@ const backfillTags = createBackfillTags({
     client: { messages: { create: (params) => bedrock.messages.create(params) } },
     model: env.VISION_MODEL_ID,
   }),
-});
+};
 
-export const handler = async (): Promise<BackfillSummary> => {
+const backfillTags = createBackfillTags(ports);
+const tagInserted = createStreamTagger(ports);
+
+export const handler = async (
+  event?: { Records?: readonly StreamRecord[] },
+): Promise<BackfillSummary | void> => {
+  if (event?.Records !== undefined) {
+    return tagInserted({ Records: event.Records });
+  }
+
   const summary = await backfillTags();
   console.log(JSON.stringify(summary));
   return summary;

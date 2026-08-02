@@ -208,6 +208,22 @@ export class SignalStack extends cdk.Stack {
       }),
     );
 
+    taggerFunction.addEventSource(
+      new DynamoEventSource(catalogueTable, {
+        startingPosition: lambda.StartingPosition.LATEST,
+        retryAttempts: 3,
+        bisectBatchOnError: true,
+        filters: [
+          lambda.FilterCriteria.filter({
+            eventName: lambda.FilterRule.isEqual('INSERT'),
+            dynamodb: {
+              Keys: { PK: { S: lambda.FilterRule.isEqual('SHITPOST') } },
+            },
+          }),
+        ],
+      }),
+    );
+
     profileBuilderFunction.addEventSource(
       new DynamoEventSource(catalogueTable, {
         startingPosition: lambda.StartingPosition.LATEST,
@@ -614,6 +630,12 @@ export class SignalStack extends cdk.Stack {
           ],
           reason:
             'Cross-region inference: the eu. profile may execute Claude Haiku in any EU region, so the foundation-model ARN needs a region wildcard; both resources stay pinned to the one Haiku model.',
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: ['Resource::*'],
+          reason:
+            'dynamodb:ListStreams only accepts resource *; record reads stay scoped to the catalogue table stream ARN.',
         },
       ],
       true,

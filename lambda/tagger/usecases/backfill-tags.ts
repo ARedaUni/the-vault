@@ -1,27 +1,24 @@
-import type { ShitpostRepository } from '../../catalogue/domain/shitpost-repository';
-import type { MediaStore } from '../domain/media-store';
-import type { VisionTagger } from '../domain/vision-tagger';
+import { createTagShitpost } from './tag-shitpost';
+import type { TaggerPorts } from './tag-shitpost';
 
 export type BackfillSummary = {
   tagged: number;
   skipped: number;
 };
 
-export const createBackfillTags =
-  (options: {
-    shitposts: ShitpostRepository;
-    media: MediaStore;
-    vision: VisionTagger;
-  }) =>
-  async (): Promise<BackfillSummary> => {
-    const all = await options.shitposts.findAll();
-    const untagged = all.filter((shitpost) => shitpost.tags.length === 0);
+export const createBackfillTags = (options: TaggerPorts) => {
+  const tagShitpost = createTagShitpost(options);
 
-    for (const shitpost of untagged) {
-      const image = await options.media.fetch(shitpost.shitpostKey);
-      const tags = await options.vision.suggestTags(image);
-      await options.shitposts.save({ ...shitpost, tags });
+  return async (): Promise<BackfillSummary> => {
+    const all = await options.shitposts.findAll();
+
+    let tagged = 0;
+    for (const shitpost of all) {
+      if (await tagShitpost(shitpost)) {
+        tagged += 1;
+      }
     }
 
-    return { tagged: untagged.length, skipped: all.length - untagged.length };
+    return { tagged, skipped: all.length - tagged };
   };
+};

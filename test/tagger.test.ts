@@ -1,6 +1,11 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { marshall } from '@aws-sdk/util-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { aShitpost, inMemoryRepository } from './support/catalogue';
+import {
+  createStreamTagger,
+  type StreamRecord,
+} from '../lambda/tagger/tag-inserted';
 import { createBackfillTags } from '../lambda/tagger/usecases/backfill-tags';
 import {
   bedrockVisionTagger,
@@ -131,6 +136,103 @@ describe('s3 media store', () => {
       bytes: new Uint8Array([9, 8, 7]),
       mediaType: 'image/png',
     });
+  });
+});
+
+describe('stream tagger', () => {
+  const aShitpostInsert = (
+    overrides: Partial<{ SK: string; tags: string[] }> = {},
+  ): StreamRecord => ({
+    eventName: 'INSERT',
+    dynamodb: {
+      NewImage: marshall({
+        PK: 'SHITPOST',
+        SK: 'media/new.png',
+        uploadedAt: '2026-08-01T12:00:00Z',
+        ...overrides,
+      }),
+    },
+  });
+
+  const spyingVision = () => {
+    const seen: StoredImage[] = [];
+    const vision: VisionTagger = {
+      suggestTags: async (image) => {
+        seen.push(image);
+        return ['fresh', 'stream'];
+      },
+    };
+    return { vision, seen };
+  };
+
+  it('tags a freshly inserted shitpost', async () => {
+    const shitposts = inMemoryRepository();
+    const { vision } = spyingVision();
+    const tagInserted = createStreamTagger({
+      shitposts,
+      media: inMemoryMediaStore(),
+      vision,
+    });
+
+    await tagInserted({ Records: [aShitpostInsert({ SK: 'media/new.png' })] });
+
+    const stored = await shitposts.findAll();
+    expect(stored).toEqual([
+      {
+        shitpostKey: 'media/new.png',
+        uploadedAt: '2026-08-01T12:00:00Z',
+        tags: ['fresh', 'stream'],
+      },
+    ]);
+  });
+
+  it('ignores signal inserts and modify events', async () => {
+    const shitposts = inMemoryRepository();
+    const { vision, seen } = spyingVision();
+    const tagInserted = createStreamTagger({
+      shitposts,
+      media: inMemoryMediaStore(),
+      vision,
+    });
+
+    await tagInserted({
+      Records: [
+        {
+          eventName: 'INSERT',
+          dynamodb: {
+            NewImage: marshall({
+              PK: 'USER#ali',
+              SK: 'SIGNAL#2026-08-01T12:00:00Z#media/cat.png',
+              userId: 'ali',
+              shitpostKey: 'media/cat.png',
+              tags: ['cats'],
+              signalledAt: '2026-08-01T12:00:00Z',
+            }),
+          },
+        },
+        { ...aShitpostInsert(), eventName: 'MODIFY' },
+      ],
+    });
+
+    expect(seen).toEqual([]);
+    expect(await shitposts.findAll()).toEqual([]);
+  });
+
+  it('leaves a shitpost that arrives already tagged alone', async () => {
+    const shitposts = inMemoryRepository();
+    const { vision, seen } = spyingVision();
+    const tagInserted = createStreamTagger({
+      shitposts,
+      media: inMemoryMediaStore(),
+      vision,
+    });
+
+    await tagInserted({
+      Records: [aShitpostInsert({ tags: ['born-tagged'] })],
+    });
+
+    expect(seen).toEqual([]);
+    expect(await shitposts.findAll()).toEqual([]);
   });
 });
 
