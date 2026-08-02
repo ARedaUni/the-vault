@@ -322,6 +322,15 @@ test('POST /signals routes to the catalogue Lambda and requires a valid user-poo
   });
 });
 
+test('GET /feed routes to the catalogue Lambda and stays public like the gallery', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+    RouteKey: 'GET /feed',
+    AuthorizationType: 'NONE',
+  });
+});
+
 test('GET /shitposts stays public so the gallery keeps loading', () => {
   const template = synthesize();
 

@@ -238,6 +238,12 @@ export class SignalStack extends cdk.Stack {
       authorizer: vaultKeeperAuthorizer,
     });
 
+    const [feedRoute] = catalogueApi.addRoutes({
+      path: '/feed',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: catalogueIntegration,
+    });
+
     new cdk.CfnOutput(this, 'UserPoolId', {
       value: vaultKeepers.userPoolId,
       description: 'Quest 3 — the membership office',
@@ -444,6 +450,14 @@ export class SignalStack extends cdk.Stack {
         id: 'AwsSolutions-APIG4',
         reason:
           'GET /shitposts is public by design — the gallery is the product. Writes require a Cognito JWT.',
+      },
+    ]);
+
+    NagSuppressions.addResourceSuppressions(feedRoute, [
+      {
+        id: 'AwsSolutions-APIG4',
+        reason:
+          'GET /feed is public alongside GET /shitposts until the login UI lands (ledger); it exposes ranking order only, and all writes require a Cognito JWT.',
       },
     ]);
 

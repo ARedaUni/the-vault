@@ -3,6 +3,7 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
 import { dynamoDbShitpostRepository } from './repositories/shitposts';
 import { dynamoDbSignalRepository } from './repositories/signals';
+import { dynamoDbTasteProfileReader } from './repositories/taste-profiles';
 import { createShitpostsHandler } from './routes/shitposts';
 import { emfFormat } from './telemetry/emf';
 import { withRepositoryTelemetry } from './telemetry/repository-telemetry';
@@ -22,6 +23,10 @@ export const handler = createShitpostsHandler(repository, {
   emit: (event) => console.log(emfFormat(event)),
   collect: drain,
   signals: dynamoDbSignalRepository({
+    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+    tableName: environment.CATALOGUE_TABLE_NAME,
+  }),
+  profiles: dynamoDbTasteProfileReader({
     client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
     tableName: environment.CATALOGUE_TABLE_NAME,
   }),

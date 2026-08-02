@@ -3,6 +3,7 @@ import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-d
 import { mockClient } from 'aws-sdk-client-mock';
 import { dynamoDbShitpostRepository } from '../lambda/catalogue/repositories/shitposts';
 import { dynamoDbSignalRepository } from '../lambda/catalogue/repositories/signals';
+import { dynamoDbTasteProfileReader } from '../lambda/catalogue/repositories/taste-profiles';
 import { createShitpostsHandler } from '../lambda/catalogue/routes/shitposts';
 import type { CatalogueEvent } from '../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../lambda/catalogue/domain/shitpost';
@@ -15,6 +16,7 @@ import {
   dynamoDbBackedRepository,
   inMemoryRepository,
   inMemorySignalRepository,
+  inMemoryTasteProfiles,
 } from './support/catalogue';
 
 const aRequest = (overrides: Partial<CatalogueEvent> = {}): CatalogueEvent => ({
@@ -295,6 +297,88 @@ test('POST /shitposts rejects an invalid body with 400 and stores nothing', asyn
 
   expect(response.statusCode).toBe(400);
   await expect(repository.findAll()).resolves.toEqual([]);
+});
+
+test('GET /feed ranks the hoard by tag affinity, then newest first', async () => {
+  const catPost = aShitpost({
+    shitpostKey: 'media/cat.png',
+    uploadedAt: '2026-01-01T00:00:00Z',
+    tags: ['cats'],
+  });
+  const memePost = aShitpost({
+    shitpostKey: 'media/meme.png',
+    uploadedAt: '2026-06-01T00:00:00Z',
+    tags: ['memes'],
+  });
+  const vintagePost = aShitpost({
+    shitpostKey: 'media/vintage.png',
+    uploadedAt: '2026-03-01T00:00:00Z',
+    tags: [],
+  });
+  const handler = createShitpostsHandler(
+    inMemoryRepository([memePost, vintagePost, catPost]),
+    { profiles: inMemoryTasteProfiles({ ali: { cats: 4, memes: 1 } }) },
+  );
+
+  const response = await handler(
+    aRequest({ rawPath: '/feed', queryStringParameters: { userId: 'ali' } }),
+  );
+
+  expect(response.statusCode).toBe(200);
+  expect(JSON.parse(response.body ?? '')).toEqual({
+    feed: [catPost, memePost, vintagePost],
+  });
+});
+
+test('GET /feed for a user with no profile yet falls back to newest first', async () => {
+  const newest = aShitpost({ shitpostKey: 'media/new.png', uploadedAt: '2026-06-01T00:00:00Z' });
+  const oldest = aShitpost({ shitpostKey: 'media/old.png', uploadedAt: '2026-01-01T00:00:00Z' });
+  const handler = createShitpostsHandler(inMemoryRepository([oldest, newest]), {
+    profiles: inMemoryTasteProfiles({}),
+  });
+
+  const response = await handler(
+    aRequest({ rawPath: '/feed', queryStringParameters: { userId: 'stranger' } }),
+  );
+
+  expect(JSON.parse(response.body ?? '')).toEqual({ feed: [newest, oldest] });
+});
+
+test('GET /feed without a userId is rejected with 400', async () => {
+  const handler = createShitpostsHandler(inMemoryRepository([]), {
+    profiles: inMemoryTasteProfiles({}),
+  });
+
+  const response = await handler(aRequest({ rawPath: '/feed' }));
+
+  expect(response.statusCode).toBe(400);
+});
+
+test('the DynamoDB taste profile reader queries the profile prefix and maps tallies by tag', async () => {
+  const dynamoDb = mockClient(DynamoDBDocumentClient);
+  dynamoDb.on(QueryCommand).callsFake((input) => {
+    expect(input).toEqual(
+      expect.objectContaining({
+        TableName: 'TestCatalogue',
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+        ExpressionAttributeValues: { ':pk': 'USER#ali', ':prefix': 'PROFILE#TAG#' },
+      }),
+    );
+    return {
+      Items: [
+        { PK: 'USER#ali', SK: 'PROFILE#TAG#cats', tally: 4 },
+        { PK: 'USER#ali', SK: 'PROFILE#TAG#memes', tally: 1 },
+      ],
+    };
+  });
+
+  const profiles = dynamoDbTasteProfileReader({
+    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+    tableName: 'TestCatalogue',
+  });
+
+  await expect(profiles.findByUser('ali')).resolves.toEqual({ cats: 4, memes: 1 });
+  dynamoDb.restore();
 });
 
 const aSignalRequest = (body: unknown): CatalogueEvent =>

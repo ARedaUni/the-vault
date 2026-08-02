@@ -11,6 +11,7 @@ import type { Shitpost } from '../../lambda/catalogue/domain/shitpost';
 import type { ShitpostRepository } from '../../lambda/catalogue/domain/shitpost-repository';
 import type { Signal } from '../../lambda/catalogue/domain/signal';
 import type { SignalRepository } from '../../lambda/catalogue/domain/signal-repository';
+import type { TasteProfile, TasteProfileReader } from '../../lambda/catalogue/domain/taste-profile';
 
 export const aCanonicalEvent = (
   overrides: Partial<CanonicalRequestEvent> = {},
@@ -56,6 +57,12 @@ export const inMemorySignalRepository = (
     },
   };
 };
+
+export const inMemoryTasteProfiles = (
+  profiles: Record<string, TasteProfile>,
+): TasteProfileReader => ({
+  findByUser: async (userId) => profiles[userId] ?? {},
+});
 
 const toRow = (shitpost: Shitpost) => ({
   PK: 'SHITPOST',

@@ -3,14 +3,17 @@ import { shitpostSchema } from '../domain/shitpost';
 import { signalRequestSchema } from '../domain/signal';
 import type { ShitpostRepository } from '../domain/shitpost-repository';
 import type { SignalRepository } from '../domain/signal-repository';
+import type { TasteProfileReader } from '../domain/taste-profile';
 import { addShitpost } from '../usecases/add-shitpost';
 import { listShitposts } from '../usecases/list-shitposts';
+import { rankFeed } from '../usecases/rank-feed';
 import { recordSignal } from '../usecases/record-signal';
 
 export type CatalogueEvent = {
   requestContext: { requestId?: string; http: { method: string } };
   rawPath?: string;
   body?: string;
+  queryStringParameters?: Record<string, string | undefined>;
 };
 
 export type CanonicalRequestEvent = {
@@ -30,6 +33,7 @@ type HandlerOptions = {
   now?: () => number;
   collect?: () => Pick<CanonicalRequestEvent, 'repositoryDurationMs' | 'itemCount'>;
   signals?: SignalRepository;
+  profiles?: TasteProfileReader;
 };
 
 const json = (
@@ -72,10 +76,24 @@ const postSignal = async (
   return json(201, { signal });
 };
 
+const getFeed = async (
+  repository: ShitpostRepository,
+  profiles: TasteProfileReader,
+  event: CatalogueEvent,
+): Promise<APIGatewayProxyStructuredResultV2> => {
+  const userId = event.queryStringParameters?.userId;
+  if (!userId) {
+    return json(400, { error: 'userId required' });
+  }
+  return json(200, {
+    feed: await rankFeed({ shitposts: repository, profiles, userId }),
+  });
+};
+
 const dispatch = async (
   repository: ShitpostRepository,
   event: CatalogueEvent,
-  options: { signals?: SignalRepository; now: () => number },
+  options: { signals?: SignalRepository; profiles?: TasteProfileReader; now: () => number },
 ): Promise<{
   response: APIGatewayProxyStructuredResultV2;
   errorName?: string;
@@ -87,6 +105,10 @@ const dispatch = async (
       return {
         response: await postSignal(repository, options.signals, event, options.now),
       };
+    }
+
+    if (method === 'GET' && event.rawPath === '/feed' && options.profiles) {
+      return { response: await getFeed(repository, options.profiles, event) };
     }
 
     if (method === 'GET') {
@@ -130,6 +152,7 @@ export const createShitpostsHandler = (
 
     const { response, errorName } = await dispatch(repository, event, {
       signals: options.signals,
+      profiles: options.profiles,
       now,
     });
 
