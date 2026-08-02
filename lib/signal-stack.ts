@@ -181,6 +181,7 @@ export class SignalStack extends cdk.Stack {
       logGroup: taggerLogs,
       timeout: cdk.Duration.minutes(10),
       memorySize: 512,
+      bundling: { externalModules: [] },
       environment: {
         CATALOGUE_TABLE_NAME: catalogueTable.tableName,
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
