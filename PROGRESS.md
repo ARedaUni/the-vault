@@ -13,7 +13,7 @@
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
 - **XP:** 1700 / 1900
-- **Current quest:** Quest 7 — The Harvester (scoping; campaign extended, boss fight deferred)
+- **Current quest:** Quest 7 — The Tagger
 
 ## 📜 Rules of the Realm
 
@@ -42,9 +42,12 @@
 | 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ✅ 2026-07-28 |
 | 5 | **The Assembly Line** | GitHub Actions, OIDC, cdk diff gates | 200 | ✅ 2026-07-30 |
 | 6 | **The Algorithm** | Taste profile, DynamoDB Streams, For You feed | 150 | ✅ 2026-08-02 |
+| 7 | **The Tagger** | Bedrock Claude vision, auto-tagging, backfill over the untagged hoard | 150 | ⚪ |
+| 8 | **The Harvester** | Reddit saved-posts client (hexagonal port/adapter), Secrets Manager, EventBridge Scheduler pipeline | 250 | ⚪ |
+| 9 | **The Viewing Room** | Real frontend: login UI, ❤️ buttons, For You tab | 200 | ⚪ |
 | 🐉 | **Boss Fight** | Mock BBC interview — defend every choice | 200 | ⚪ |
 
-**Total: 1900 XP**
+**Total: 2500 XP**
 
 ## 🚢 Ship Log
 
