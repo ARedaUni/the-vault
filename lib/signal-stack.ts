@@ -13,6 +13,7 @@ import { S3BucketOrigin } from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -129,6 +130,7 @@ export class SignalStack extends cdk.Stack {
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: hoardKey,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
     });
 
     new cdk.CfnOutput(this, 'CatalogueTableName', {
@@ -151,6 +153,36 @@ export class SignalStack extends cdk.Stack {
     });
 
     catalogueTable.grantReadWriteData(catalogueFunction);
+
+    const profileBuilderLogs = new logs.LogGroup(this, 'ProfileBuilderLogs', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const profileBuilderFunction = new NodejsFunction(this, 'ProfileBuilderFunction', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      entry: 'lambda/profile-builder/handler.ts',
+      logGroup: profileBuilderLogs,
+      environment: {
+        CATALOGUE_TABLE_NAME: catalogueTable.tableName,
+      },
+    });
+
+    catalogueTable.grantWriteData(profileBuilderFunction);
+
+    profileBuilderFunction.addEventSource(
+      new DynamoEventSource(catalogueTable, {
+        startingPosition: lambda.StartingPosition.LATEST,
+        filters: [
+          lambda.FilterCriteria.filter({
+            eventName: lambda.FilterRule.isEqual('INSERT'),
+            dynamodb: {
+              Keys: { SK: { S: lambda.FilterRule.beginsWith('SIGNAL#') } },
+            },
+          }),
+        ],
+      }),
+    );
 
     const catalogueApi = new apigwv2.HttpApi(this, 'CatalogueApi', {
       corsPreflight: {
@@ -461,6 +493,30 @@ export class SignalStack extends cdk.Stack {
           appliesTo: ['Action::kms:ReEncrypt*', 'Action::kms:GenerateDataKey*'],
           reason:
             'Canonical KMS grant shape from grantReadWriteData: the wildcards cover the WithoutPlaintext/From/To variants of two actions, scoped to the single hoard key.',
+        },
+      ],
+      true,
+    );
+
+    NagSuppressions.addResourceSuppressions(
+      profileBuilderFunction,
+      [
+        {
+          id: 'AwsSolutions-IAM4',
+          reason:
+            'AWSLambdaBasicExecutionRole grants CloudWatch Logs write only — the least privilege this function needs.',
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: ['Action::kms:ReEncrypt*', 'Action::kms:GenerateDataKey*'],
+          reason:
+            'Canonical KMS grant shape from grantWriteData: the wildcards cover the WithoutPlaintext/From/To variants of two actions, scoped to the single hoard key.',
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: ['Resource::*'],
+          reason:
+            'dynamodb:ListStreams only accepts resource *; record reads stay scoped to the catalogue table stream ARN.',
         },
       ],
       true,
