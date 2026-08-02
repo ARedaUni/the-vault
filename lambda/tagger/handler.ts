@@ -19,7 +19,7 @@ const envSchema = z.object({
 
 const env = envSchema.parse(process.env);
 
-const bedrock = new AnthropicBedrock();
+const bedrock = new AnthropicBedrock({ maxRetries: 10 });
 
 const ports = {
   shitposts: dynamoDbShitpostRepository({

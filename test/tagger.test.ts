@@ -319,6 +319,36 @@ describe('backfill tags', () => {
 
     const summary = await backfill();
 
-    expect(summary).toEqual({ tagged: 2, skipped: 1 });
+    expect(summary).toEqual({ tagged: 2, skipped: 1, failed: 0 });
+  });
+
+  it('carries on past a failing image and reports it instead of dying', async () => {
+    const shitposts = inMemoryRepository([
+      aShitpost({ shitpostKey: 'media/poison.png', tags: [] }),
+      aShitpost({ shitpostKey: 'media/fine.png', tags: [] }),
+    ]);
+    const flakyVision: VisionTagger = {
+      suggestTags: async (image) => {
+        if (image.bytes[0] === 66) {
+          throw new Error('429 Too many requests');
+        }
+        return ['fresh'];
+      },
+    };
+    const backfill = createBackfillTags({
+      shitposts,
+      media: inMemoryMediaStore({
+        'media/poison.png': anImage({ bytes: new Uint8Array([66]) }),
+      }),
+      vision: flakyVision,
+    });
+
+    const summary = await backfill();
+
+    expect(summary).toEqual({ tagged: 1, skipped: 0, failed: 1 });
+    expect(
+      (await shitposts.findAll()).find((s) => s.shitpostKey === 'media/fine.png')
+        ?.tags,
+    ).toEqual(['fresh']);
   });
 });
