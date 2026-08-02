@@ -173,6 +173,8 @@ export class SignalStack extends cdk.Stack {
     profileBuilderFunction.addEventSource(
       new DynamoEventSource(catalogueTable, {
         startingPosition: lambda.StartingPosition.LATEST,
+        retryAttempts: 3,
+        bisectBatchOnError: true,
         filters: [
           lambda.FilterCriteria.filter({
             eventName: lambda.FilterRule.isEqual('INSERT'),

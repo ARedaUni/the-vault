@@ -230,6 +230,15 @@ test('the catalogue table streams new and old images of every change', () => {
   });
 });
 
+test('a poison batch cannot loop forever: retries are capped and bisected to isolate the bad record', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
+    MaximumRetryAttempts: 3,
+    BisectBatchOnFunctionError: true,
+  });
+});
+
 test('the profile builder listens to the stream but is only woken by inserted signals', () => {
   const template = synthesize();
 

@@ -12,8 +12,8 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 1550 / 1900
-- **Current quest:** Quest 6 — The Algorithm
+- **XP:** 1700 / 1900
+- **Current quest:** Quest 7 — The Harvester (scoping; campaign extended, boss fight deferred)
 
 ## 📜 Rules of the Realm
 
@@ -41,7 +41,7 @@
 | 4 | **The Watchtower** | Structured logs, EMF metrics, alarms, dashboards | 200 | ✅ 2026-07-26 |
 | 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ✅ 2026-07-28 |
 | 5 | **The Assembly Line** | GitHub Actions, OIDC, cdk diff gates | 200 | ✅ 2026-07-30 |
-| 6 | **The Algorithm** | Taste profile, DynamoDB Streams, For You feed | 150 | ⚪ |
+| 6 | **The Algorithm** | Taste profile, DynamoDB Streams, For You feed | 150 | ✅ 2026-08-02 |
 | 🐉 | **Boss Fight** | Mock BBC interview — defend every choice | 200 | ⚪ |
 
 **Total: 1900 XP**
@@ -49,6 +49,29 @@
 ## 🚢 Ship Log
 
 *(newest first — every session gets a line, even the scrappy ones)*
+
+- **2026-08-02 (session 9) — Quest 6 COMPLETE: checkpoint passed 🟡
+  (+150 XP → 1700/1900). 🧮** The Algorithm lives: ❤️ → POST /signals
+  (Cognito JWT) writes a SIGNAL item with the shitpost's tags copied in
+  at write time (Event-Carried State Transfer — the receipt is frozen
+  truth); the table's stream (NEW_AND_OLD_IMAGES) feeds a profile-builder
+  Lambda through an ESM filtered to `INSERT ∧ SK begins SIGNAL#` (the
+  filter is also the loop-breaker — the builder's own tally writes hit
+  the same tape); tallies live as per-tag items (`PROFILE#TAG#cats`,
+  atomic `ADD`); GET /feed ranks the hoard by tag affinity in one Query,
+  degrading to newest-first for strangers. Tags added to the domain via
+  lazy migration — `.default([])` at the Zod boundary, zero backfill,
+  verified live against the 91 pre-tags rows. End-to-end proven in prod:
+  2 signals → 1 builder invocation → `spongebob: 2, memes: 2` →
+  spongebob promoted over newer posts. Exam 🟡🟡🔴🟢🟡 + retake taught:
+  ESM checkpoints are per-consumer (poison batch ≠ contagion), REMOVEs
+  are invisible to an INSERT-only filter. Debt: partial batch responses
+  / retryAttempts / bisect / DLQ on the ESM (double-count drift),
+  userId from body not JWT claim, feed auth waits on login UI, signals
+  not yet in the lake (Telescope carries ops telemetry only — the
+  batch lane can't yet recompute tallies). Ideas banked: the Harvester
+  (Reddit saved-posts ingestion + LLM auto-tagging), frontend quest.
+  Next: campaign extended — Quest 7: The Harvester. 🌾
 
 - **2026-07-30 (session 8, close) — Quest 5 COMPLETE: checkpoint PASSED
   (+200 XP → 1550/1900). 🏭** The Vault deploys itself: push to main →
@@ -312,6 +335,40 @@
   (The Vault + The Algorithm; see roadmap).
 
 ## 🧠 Learnings
+
+- **The write path must not know its readers.** Option A (update the profile
+  inline) died on coupling: every new consumer means editing POST /signals.
+  The stream inverts it — the table write is atomic with its tape record, and
+  each consumer attaches with its own ESM and its own checkpoint. Adding
+  "trending" later = one new consumer, zero write-path edits; one consumer
+  crash-looping on a poison batch stalls only its own bookmark.
+- **Events are frozen facts; copy state in at write time.** The signal carries
+  the shitpost's tags as of the moment of liking (Event-Carried State
+  Transfer). Cost accepted: re-tagging the post never updates old signals —
+  which is correct, because receipts that get edited can't audit anything.
+  Corollary: "clean up signals when the post is deleted" manufactures
+  inconsistency — the REMOVEs are invisible to an INSERT-only filter, so
+  tallies would keep claiming likes whose receipts are gone.
+- **At-least-once delivery means your increments will eventually double.**
+  Batch of 3, crash on #3, full-batch retry recounts #1–2. `ADD` is atomic
+  but not idempotent. Defenses in cost order: partial batch responses,
+  retryAttempts/maxRecordAge/bisect/DLQ, idempotent writes — or let the
+  batch lane (recompute from all history) correct the streaming lane's
+  drift. Streaming = fast and approximately right; batch = slow and exactly
+  right; real platforms run both.
+- **NoSQL schema changes are code changes, not migrations.** No ALTER TABLE
+  exists; the schema lives in the Zod file. Additive field + sensible
+  default = `.default([])` at the boundary (AWS calls it lazy migration /
+  application tolerance) — 91 legacy rows parsed clean in prod, zero items
+  rewritten. A Put on an existing key is the write-back upgrade. Reserve
+  `schemaVersion` stamps for fields that change *meaning*.
+- **Counters want their own items.** `ADD tally :1` on `PROFILE#TAG#<tag>`
+  is atomic and creates-if-missing; a map inside one profile item can't be
+  atomically incremented into existence. The read side pays one
+  `begins_with` Query for the whole profile — CQRS in miniature: writer
+  (builder) holds a write-only port and IAM, reader (feed) holds a
+  read-only one; the item shape is their only contract, pinned by tests
+  on both sides.
 
 - **OIDC removes the secret instead of hiding it better.** An access key in
   repo secrets is a permanent password in someone else's cloud; OIDC stores
