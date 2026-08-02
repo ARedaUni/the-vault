@@ -1,7 +1,8 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { dynamoDbShitpostRepository } from '../lambda/catalogue/repositories/shitposts';
+import { dynamoDbSignalRepository } from '../lambda/catalogue/repositories/signals';
 import { createShitpostsHandler } from '../lambda/catalogue/routes/shitposts';
 import type { CatalogueEvent } from '../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../lambda/catalogue/domain/shitpost';
@@ -13,6 +14,7 @@ import {
   aShitpost,
   dynamoDbBackedRepository,
   inMemoryRepository,
+  inMemorySignalRepository,
 } from './support/catalogue';
 
 const aRequest = (overrides: Partial<CatalogueEvent> = {}): CatalogueEvent => ({
@@ -54,6 +56,19 @@ const shitpostRepositoryContract = (
       await repository.save(fresh);
 
       await expect(repository.findAll()).resolves.toEqual([fresh]);
+    });
+
+    test('a shitpost keeps its tags from save to findAll', async () => {
+      const repository = makeRepository([]);
+      const tagged = aShitpost({
+        shitpostKey: 'media/cat-in-a-terminal.png',
+        tags: ['cats', 'programming'],
+      });
+
+      await repository.save(tagged);
+
+      const [found] = await repository.findAll();
+      expect(found?.tags).toEqual(['cats', 'programming']);
     });
   });
 };
@@ -174,6 +189,55 @@ test('a failed request counts one error; a healthy request counts zero', () => {
   expect(failed.errorName).toBe('ConnectionTimeout');
 });
 
+test('the DynamoDB signal repository stores a signal under the user partition, ordered by time', async () => {
+  const dynamoDb = mockClient(DynamoDBDocumentClient);
+  const written: unknown[] = [];
+  dynamoDb.on(PutCommand).callsFake((input) => {
+    written.push(input.Item);
+    return {};
+  });
+
+  const repository = dynamoDbSignalRepository({
+    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+    tableName: 'TestCatalogue',
+  });
+  await repository.save({
+    userId: 'ali',
+    shitpostKey: 'media/cat.png',
+    tags: ['cats'],
+    signalledAt: '2025-07-26T03:20:00.000Z',
+  });
+
+  expect(written).toEqual([
+    {
+      PK: 'USER#ali',
+      SK: 'SIGNAL#2025-07-26T03:20:00.000Z#media/cat.png',
+      userId: 'ali',
+      shitpostKey: 'media/cat.png',
+      tags: ['cats'],
+      signalledAt: '2025-07-26T03:20:00.000Z',
+    },
+  ]);
+  dynamoDb.restore();
+});
+
+test('a row stored before tags existed surfaces as a shitpost with no tags', async () => {
+  const dynamoDb = mockClient(DynamoDBDocumentClient);
+  dynamoDb.on(QueryCommand).resolves({
+    Items: [{ PK: 'SHITPOST', SK: 'media/vintage.png', uploadedAt: '2026-07-19T21:00:00Z' }],
+  });
+
+  const repository = dynamoDbShitpostRepository({
+    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+    tableName: 'TestCatalogue',
+  });
+
+  const [vintage] = await repository.findAll();
+
+  expect(vintage?.tags).toEqual([]);
+  dynamoDb.restore();
+});
+
 test('the DynamoDB repository rejects malformed rows at the database boundary', async () => {
   const dynamoDb = mockClient(DynamoDBDocumentClient);
   dynamoDb.on(QueryCommand).resolves({
@@ -231,6 +295,59 @@ test('POST /shitposts rejects an invalid body with 400 and stores nothing', asyn
 
   expect(response.statusCode).toBe(400);
   await expect(repository.findAll()).resolves.toEqual([]);
+});
+
+const aSignalRequest = (body: unknown): CatalogueEvent =>
+  aRequest({
+    rawPath: '/signals',
+    requestContext: { http: { method: 'POST' } },
+    body: JSON.stringify(body),
+  });
+
+test('POST /signals stores a signal carrying the shitpost tags at that moment', async () => {
+  const signals = inMemorySignalRepository();
+  const handler = createShitpostsHandler(
+    inMemoryRepository([
+      aShitpost({ shitpostKey: 'media/cat.png', tags: ['cats', 'programming'] }),
+    ]),
+    { signals, now: () => 1753500000000 },
+  );
+
+  const response = await handler(
+    aSignalRequest({ userId: 'ali', shitpostKey: 'media/cat.png' }),
+  );
+
+  expect(response.statusCode).toBe(201);
+  await expect(signals.findAll()).resolves.toEqual([
+    {
+      userId: 'ali',
+      shitpostKey: 'media/cat.png',
+      tags: ['cats', 'programming'],
+      signalledAt: '2025-07-26T03:20:00.000Z',
+    },
+  ]);
+});
+
+test('POST /signals responds 404 for an unknown shitpost and stores nothing', async () => {
+  const signals = inMemorySignalRepository();
+  const handler = createShitpostsHandler(inMemoryRepository([]), { signals });
+
+  const response = await handler(
+    aSignalRequest({ userId: 'ali', shitpostKey: 'media/does-not-exist.png' }),
+  );
+
+  expect(response.statusCode).toBe(404);
+  await expect(signals.findAll()).resolves.toEqual([]);
+});
+
+test('POST /signals rejects an invalid body with 400 and stores nothing', async () => {
+  const signals = inMemorySignalRepository();
+  const handler = createShitpostsHandler(inMemoryRepository([]), { signals });
+
+  const response = await handler(aSignalRequest({ userId: '', shitpostKey: '' }));
+
+  expect(response.statusCode).toBe(400);
+  await expect(signals.findAll()).resolves.toEqual([]);
 });
 
 test('POST /shitposts rejects a body that is not JSON with 400', async () => {

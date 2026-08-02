@@ -222,6 +222,31 @@ test('API CORS permits only GET and POST, from a single allowed origin', () => {
   });
 });
 
+test('the catalogue table streams new and old images of every change', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::DynamoDB::Table', {
+    StreamSpecification: { StreamViewType: 'NEW_AND_OLD_IMAGES' },
+  });
+});
+
+test('the profile builder listens to the stream but is only woken by inserted signals', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
+    FilterCriteria: {
+      Filters: [
+        {
+          Pattern: JSON.stringify({
+            eventName: ['INSERT'],
+            dynamodb: { Keys: { SK: { S: [{ prefix: 'SIGNAL#' }] } } },
+          }),
+        },
+      ],
+    },
+  });
+});
+
 test('the catalogue Lambda role is allowed to query DynamoDB', () => {
   const template = synthesize();
 
@@ -284,6 +309,15 @@ test('POST /shitposts requires a valid user-pool JWT', () => {
 
   template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
     RouteKey: 'POST /shitposts',
+    AuthorizationType: 'JWT',
+  });
+});
+
+test('POST /signals routes to the catalogue Lambda and requires a valid user-pool JWT', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+    RouteKey: 'POST /signals',
     AuthorizationType: 'JWT',
   });
 });

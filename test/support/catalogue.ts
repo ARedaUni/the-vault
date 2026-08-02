@@ -9,6 +9,8 @@ import { dynamoDbShitpostRepository } from '../../lambda/catalogue/repositories/
 import type { CanonicalRequestEvent } from '../../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../../lambda/catalogue/domain/shitpost';
 import type { ShitpostRepository } from '../../lambda/catalogue/domain/shitpost-repository';
+import type { Signal } from '../../lambda/catalogue/domain/signal';
+import type { SignalRepository } from '../../lambda/catalogue/domain/signal-repository';
 
 export const aCanonicalEvent = (
   overrides: Partial<CanonicalRequestEvent> = {},
@@ -27,6 +29,7 @@ export const aCanonicalEvent = (
 export const aShitpost = (overrides: Partial<Shitpost> = {}): Shitpost => ({
   shitpostKey: 'media/default.png',
   uploadedAt: '2026-07-01T12:00:00Z',
+  tags: ['memes'],
   ...overrides,
 });
 
@@ -42,10 +45,23 @@ export const inMemoryRepository = (
   };
 };
 
+export const inMemorySignalRepository = (
+  seed: readonly Signal[] = [],
+): SignalRepository & { findAll: () => Promise<readonly Signal[]> } => {
+  let stored: readonly Signal[] = [...seed];
+  return {
+    findAll: async () => stored,
+    save: async (signal) => {
+      stored = [...stored, signal];
+    },
+  };
+};
+
 const toRow = (shitpost: Shitpost) => ({
   PK: 'SHITPOST',
   SK: shitpost.shitpostKey,
   uploadedAt: shitpost.uploadedAt,
+  tags: shitpost.tags,
 });
 
 export const dynamoDbBackedRepository = (

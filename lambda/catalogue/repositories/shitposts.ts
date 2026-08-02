@@ -10,12 +10,17 @@ import type { ShitpostRepository } from '../domain/shitpost-repository';
 const SHITPOST_PARTITION = 'SHITPOST';
 
 const toShitpost = (item: Record<string, unknown>): Shitpost =>
-  shitpostSchema.parse({ shitpostKey: item.SK, uploadedAt: item.uploadedAt });
+  shitpostSchema.parse({
+    shitpostKey: item.SK,
+    uploadedAt: item.uploadedAt,
+    tags: item.tags,
+  });
 
 const toItem = (shitpost: Shitpost): Record<string, unknown> => ({
   PK: SHITPOST_PARTITION,
   SK: shitpost.shitpostKey,
   uploadedAt: shitpost.uploadedAt,
+  tags: shitpost.tags,
 });
 
 export const dynamoDbShitpostRepository = (options: {

@@ -1,8 +1,11 @@
 import type { APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { shitpostSchema } from '../domain/shitpost';
+import { signalRequestSchema } from '../domain/signal';
 import type { ShitpostRepository } from '../domain/shitpost-repository';
+import type { SignalRepository } from '../domain/signal-repository';
 import { addShitpost } from '../usecases/add-shitpost';
 import { listShitposts } from '../usecases/list-shitposts';
+import { recordSignal } from '../usecases/record-signal';
 
 export type CatalogueEvent = {
   requestContext: { requestId?: string; http: { method: string } };
@@ -26,6 +29,7 @@ type HandlerOptions = {
   emit?: (event: CanonicalRequestEvent) => void;
   now?: () => number;
   collect?: () => Pick<CanonicalRequestEvent, 'repositoryDurationMs' | 'itemCount'>;
+  signals?: SignalRepository;
 };
 
 const json = (
@@ -45,15 +49,45 @@ const parseJson = (body?: string): unknown => {
   }
 };
 
+const postSignal = async (
+  repository: ShitpostRepository,
+  signals: SignalRepository,
+  event: CatalogueEvent,
+  now: () => number,
+): Promise<APIGatewayProxyStructuredResultV2> => {
+  const parsed = signalRequestSchema.safeParse(parseJson(event.body));
+  if (!parsed.success) {
+    return json(400, { error: 'invalid signal' });
+  }
+
+  const signal = await recordSignal({
+    shitposts: repository,
+    signals,
+    request: parsed.data,
+    signalledAt: new Date(now()).toISOString(),
+  });
+  if (!signal) {
+    return json(404, { error: 'unknown shitpost' });
+  }
+  return json(201, { signal });
+};
+
 const dispatch = async (
   repository: ShitpostRepository,
   event: CatalogueEvent,
+  options: { signals?: SignalRepository; now: () => number },
 ): Promise<{
   response: APIGatewayProxyStructuredResultV2;
   errorName?: string;
 }> => {
   try {
     const method = event.requestContext.http.method;
+
+    if (method === 'POST' && event.rawPath === '/signals' && options.signals) {
+      return {
+        response: await postSignal(repository, options.signals, event, options.now),
+      };
+    }
 
     if (method === 'GET') {
       return { response: json(200, { shitposts: await listShitposts(repository) }) };
@@ -94,7 +128,10 @@ export const createShitpostsHandler = (
     const coldStart = nextRequestIsColdStart;
     nextRequestIsColdStart = false;
 
-    const { response, errorName } = await dispatch(repository, event);
+    const { response, errorName } = await dispatch(repository, event, {
+      signals: options.signals,
+      now,
+    });
 
     emit({
       method: event.requestContext.http.method,

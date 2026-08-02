@@ -186,13 +186,24 @@ export class SignalStack extends cdk.Stack {
       integration: catalogueIntegration,
     });
 
+    const vaultKeeperAuthorizer = new HttpUserPoolAuthorizer(
+      'VaultKeeperAuthorizer',
+      vaultKeepers,
+      { userPoolClients: [vaultKeepersClient] },
+    );
+
     catalogueApi.addRoutes({
       path: '/shitposts',
       methods: [apigwv2.HttpMethod.POST],
       integration: catalogueIntegration,
-      authorizer: new HttpUserPoolAuthorizer('VaultKeeperAuthorizer', vaultKeepers, {
-        userPoolClients: [vaultKeepersClient],
-      }),
+      authorizer: vaultKeeperAuthorizer,
+    });
+
+    catalogueApi.addRoutes({
+      path: '/signals',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: catalogueIntegration,
+      authorizer: vaultKeeperAuthorizer,
     });
 
     new cdk.CfnOutput(this, 'UserPoolId', {
