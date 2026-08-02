@@ -670,3 +670,66 @@ test('every alarm publishes to the alarm topic when it fires', () => {
     expect(alarm.Properties.AlarmActions).toHaveLength(1);
   });
 });
+
+test('the tagger Lambda knows the table, the media bucket, and the vision model', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Environment: {
+      Variables: {
+        CATALOGUE_TABLE_NAME: Match.anyValue(),
+        MEDIA_BUCKET_NAME: Match.anyValue(),
+        VISION_MODEL_ID: 'eu.anthropic.claude-haiku-4-5-20251001-v1:0',
+      },
+    },
+  });
+});
+
+test('the tagger has time to chew through the whole untagged hoard in one run', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Environment: {
+      Variables: { VISION_MODEL_ID: Match.anyValue() },
+    },
+    Timeout: 600,
+  });
+});
+
+test('the tagger may invoke only the Claude Haiku vision model, nothing wider in Bedrock', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Effect: 'Allow',
+          Action: 'bedrock:InvokeModel',
+          Resource: Match.arrayWith([
+            'arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5*',
+          ]),
+        }),
+      ]),
+    },
+  });
+});
+
+test('the tagger may read the media bucket to fetch image bytes', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Effect: 'Allow',
+          Action: Match.arrayWith(['s3:GetObject*']),
+          Resource: Match.arrayWith([
+            Match.objectLike({
+              'Fn::GetAtt': [Match.stringLikeRegexp('^MediaBucket'), 'Arn'],
+            }),
+          ]),
+        }),
+      ]),
+    },
+  });
+});

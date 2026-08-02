@@ -170,6 +170,44 @@ export class SignalStack extends cdk.Stack {
 
     catalogueTable.grantWriteData(profileBuilderFunction);
 
+    const taggerLogs = new logs.LogGroup(this, 'TaggerLogs', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const taggerFunction = new NodejsFunction(this, 'TaggerFunction', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      entry: 'lambda/tagger/handler.ts',
+      logGroup: taggerLogs,
+      timeout: cdk.Duration.minutes(10),
+      memorySize: 512,
+      environment: {
+        CATALOGUE_TABLE_NAME: catalogueTable.tableName,
+        MEDIA_BUCKET_NAME: mediaBucket.bucketName,
+        VISION_MODEL_ID: 'eu.anthropic.claude-haiku-4-5-20251001-v1:0',
+      },
+    });
+
+    catalogueTable.grantReadWriteData(taggerFunction);
+    mediaBucket.grantRead(taggerFunction);
+
+    taggerFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: [
+          'arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5*',
+          cdk.Arn.format(
+            {
+              service: 'bedrock',
+              resource: 'inference-profile',
+              resourceName: 'eu.anthropic.claude-haiku-4-5*',
+            },
+            this,
+          ),
+        ],
+      }),
+    );
+
     profileBuilderFunction.addEventSource(
       new DynamoEventSource(catalogueTable, {
         startingPosition: lambda.StartingPosition.LATEST,
@@ -533,6 +571,49 @@ export class SignalStack extends cdk.Stack {
           appliesTo: ['Resource::*'],
           reason:
             'dynamodb:ListStreams only accepts resource *; record reads stay scoped to the catalogue table stream ARN.',
+        },
+      ],
+      true,
+    );
+
+    NagSuppressions.addResourceSuppressions(
+      taggerFunction,
+      [
+        {
+          id: 'AwsSolutions-IAM4',
+          reason:
+            'AWSLambdaBasicExecutionRole grants CloudWatch Logs write only — the least privilege this function needs.',
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: ['Action::kms:ReEncrypt*', 'Action::kms:GenerateDataKey*'],
+          reason:
+            'Canonical KMS grant shape from grantReadWriteData: the wildcards cover the WithoutPlaintext/From/To variants of two actions, scoped to the single hoard key.',
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: [
+            'Action::s3:GetObject*',
+            'Action::s3:GetBucket*',
+            'Action::s3:List*',
+            {
+              regex: '/^Resource::<MediaBucket.*\\.Arn>\\/\\*$/',
+            },
+          ],
+          reason:
+            'Canonical grantRead shape: read-only action variants and the object wildcard, both scoped to the single media bucket.',
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: [
+            'Resource::arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5*',
+            {
+              regex:
+                '/^Resource::arn:<AWS::Partition>:bedrock:<AWS::Region>:<AWS::AccountId>:inference-profile\\/eu\\.anthropic\\.claude-haiku-4-5\\*$/',
+            },
+          ],
+          reason:
+            'Cross-region inference: the eu. profile may execute Claude Haiku in any EU region, so the foundation-model ARN needs a region wildcard; both resources stay pinned to the one Haiku model.',
         },
       ],
       true,
