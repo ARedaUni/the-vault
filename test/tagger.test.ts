@@ -10,8 +10,8 @@ import { createBackfillTags } from '../lambda/tagger/usecases/backfill-tags';
 import {
   bedrockVisionTagger,
   type VisionModelClient,
-} from '../lambda/tagger/repositories/bedrock-vision';
-import { s3MediaStore } from '../lambda/tagger/repositories/s3-media';
+} from '../lambda/tagger/adapters/bedrock-vision';
+import { s3MediaStore } from '../lambda/tagger/adapters/s3-media';
 import type { MediaStore, StoredImage } from '../lambda/tagger/domain/media-store';
 import type { VisionTagger } from '../lambda/tagger/domain/vision-tagger';
 

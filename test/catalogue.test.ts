@@ -1,9 +1,9 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
-import { dynamoDbShitpostRepository } from '../lambda/catalogue/repositories/shitposts';
-import { dynamoDbSignalRepository } from '../lambda/catalogue/repositories/signals';
-import { dynamoDbTasteProfileReader } from '../lambda/catalogue/repositories/taste-profiles';
+import { dynamoDbShitpostRepository } from '../lambda/catalogue/adapters/shitposts';
+import { dynamoDbSignalRepository } from '../lambda/catalogue/adapters/signals';
+import { dynamoDbTasteProfileReader } from '../lambda/catalogue/adapters/taste-profiles';
 import { createShitpostsHandler } from '../lambda/catalogue/routes/shitposts';
 import type { CatalogueEvent } from '../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../lambda/catalogue/domain/shitpost';

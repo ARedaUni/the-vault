@@ -5,7 +5,7 @@ import {
   QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
-import { dynamoDbShitpostRepository } from '../../lambda/catalogue/repositories/shitposts';
+import { dynamoDbShitpostRepository } from '../../lambda/catalogue/adapters/shitposts';
 import type { CanonicalRequestEvent } from '../../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../../lambda/catalogue/domain/shitpost';
 import type { ShitpostRepository } from '../../lambda/catalogue/domain/shitpost-repository';

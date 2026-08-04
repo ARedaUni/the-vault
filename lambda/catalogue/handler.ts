@@ -1,9 +1,9 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
-import { dynamoDbShitpostRepository } from './repositories/shitposts';
-import { dynamoDbSignalRepository } from './repositories/signals';
-import { dynamoDbTasteProfileReader } from './repositories/taste-profiles';
+import { dynamoDbShitpostRepository } from './adapters/shitposts';
+import { dynamoDbSignalRepository } from './adapters/signals';
+import { dynamoDbTasteProfileReader } from './adapters/taste-profiles';
 import { createShitpostsHandler } from './routes/shitposts';
 import { emfFormat } from './telemetry/emf';
 import { withRepositoryTelemetry } from './telemetry/repository-telemetry';
