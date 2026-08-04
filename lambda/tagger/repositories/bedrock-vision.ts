@@ -27,8 +27,17 @@ export type VisionModelClient = {
   };
 };
 
-const TAGGING_INSTRUCTION =
-  'Tag this meme for a personal recommendation feed. Reply with ONLY a JSON array of 3 to 5 short lowercase tags covering the subject, the format, and the joke (e.g. ["spongebob","programming","reaction-image"]). No other text.';
+const TAGGING_INSTRUCTION = [
+  "You are tagging a shitpost for someone's personal \"which meme do I send right now\" library.",
+  'The tags are how they find this image to fire back in a group chat, so they must capture how the meme is USED — not a literal inventory of what is in the frame.',
+  "Do NOT tag incidental subjects, settings, or objects that aren't the actual joke. Never tag things like \"cat\", \"military\", \"cyberpunk\", or \"politics\" just because they appear on screen.",
+  'Prioritise, in this order:',
+  '1. the reaction or emotion it throws (e.g. disgust, smug, defeated, unbothered, crying-laughing, deadpan, menacing, cope, seething),',
+  '2. the moment you would send it (e.g. when-someone-is-wrong, self-own, touch-grass, said-nothing-wrong, mid-argument),',
+  '3. the humour register or internet subculture (e.g. brainrot, absurdist, ironic, sincerely-unserious, deep-fried, doomer, wholesome, gen-z, rage-bait),',
+  '4. the meme format or named template ONLY if it is genuinely recognisable (e.g. wojak, chad, spongebob, soyjak).',
+  'Reply with ONLY a JSON array of 3 to 5 short lowercase kebab-case tags. No other text.',
+].join(' ');
 
 const tagsSchema = z
   .array(
