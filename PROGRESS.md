@@ -12,8 +12,8 @@
 
 - **Player:** Ali (Intermediate class)
 - **Specialisations:** Serverless & APIs · Cloud Security
-- **XP:** 1700 / 1900
-- **Current quest:** Quest 7 — The Tagger
+- **XP:** 1850 / 2500
+- **Current quest:** Quest 8 — The Harvester
 
 ## 📜 Rules of the Realm
 
@@ -42,7 +42,7 @@
 | 4.5 | **The Telescope** | Wide events, Firehose→Parquet→S3, Athena | 200 | ✅ 2026-07-28 |
 | 5 | **The Assembly Line** | GitHub Actions, OIDC, cdk diff gates | 200 | ✅ 2026-07-30 |
 | 6 | **The Algorithm** | Taste profile, DynamoDB Streams, For You feed | 150 | ✅ 2026-08-02 |
-| 7 | **The Tagger** | Bedrock Claude vision, auto-tagging, backfill over the untagged hoard | 150 | ⚪ |
+| 7 | **The Tagger** | Bedrock Claude vision, auto-tagging, backfill over the untagged hoard | 150 | ✅ 2026-08-02 |
 | 8 | **The Harvester** | Reddit saved-posts client (hexagonal port/adapter), Secrets Manager, EventBridge Scheduler pipeline | 250 | ⚪ |
 | 9 | **The Viewing Room** | Real frontend: login UI, ❤️ buttons, For You tab | 200 | ⚪ |
 | 🐉 | **Boss Fight** | Mock BBC interview — defend every choice | 200 | ⚪ |
@@ -52,6 +52,32 @@
 ## 🚢 Ship Log
 
 *(newest first — every session gets a line, even the scrappy ones)*
+
+- **2026-08-02 (session 10) — Quest 7 COMPLETE: 🟡 pass on in-session
+  evidence (+150 XP → 1850/2500). 🏷️** The Tagger lives: 91/91 shitposts
+  auto-tagged by Claude Haiku 4.5 on Bedrock for ~15p. Hexagonal core
+  (VisionTagger + MediaStore ports, tag-one-shitpost usecase shared by
+  backfill and stream entry points); the LLM reply is Zod-parsed at the
+  boundary like any untrusted input. New posts are born tagged: a second
+  ESM on the same stream, filtered `INSERT ∧ PK = SHITPOST` — the
+  tagger's own tag-writes are MODIFYs, so it can never wake itself.
+  Live-fire gauntlet (each failure invisible until the real runtime):
+  esbuild left `@smithy/*` external → crash on import (fix: bundle
+  everything); Haiku fenced its JSON → boundary rejected loudly (fix:
+  unfence in the adapter, keep rejecting prose); 403 that wasn't IAM —
+  Bedrock model access = use-case form (org-wide) AND a per-account
+  Marketplace subscription; 429 throttling → per-image failure isolation
+  + maxRetries backoff. Tagging is idempotent (set, not increment), so
+  crash-and-reinvoke was always safe — the final sweep reported
+  `{tagged:0, skipped:91, failed:0}`. Exam skipped by choice; graded on
+  live answers (ESM 🟢, loop-breaker 🟡) + scalability discussion.
+  Debt: tag vocabulary fragmentation (`meme` vs `memes` breaks
+  exact-string affinity), feed is O(all posts) per request (needs
+  candidate generation at scale), SHITPOST hot partition, backfill
+  findAll won't survive a big hoard (SQS work queue), no DLQ on either
+  ESM, tagger runs not in the lake. Next: Quest 8 — the Harvester
+  (Reddit saved-posts → S3 + catalogue, Secrets Manager, EventBridge
+  Scheduler). Ali must create a Reddit script app first. 🌾
 
 - **2026-08-02 (session 9) — Quest 6 COMPLETE: checkpoint passed 🟡
   (+150 XP → 1700/1900). 🧮** The Algorithm lives: ❤️ → POST /signals
