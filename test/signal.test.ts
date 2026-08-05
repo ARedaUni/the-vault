@@ -734,6 +734,79 @@ test('the tagger may read the media bucket to fetch image bytes', () => {
   });
 });
 
+test('the harvester Lambda knows the table, the media bucket, and the secret name', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Environment: {
+      Variables: {
+        CATALOGUE_TABLE_NAME: Match.anyValue(),
+        MEDIA_BUCKET_NAME: Match.anyValue(),
+        REDDIT_SECRET_ID: 'the-vault/reddit',
+      },
+    },
+  });
+});
+
+test('the harvester may read only the reddit credentials secret', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Effect: 'Allow',
+          Action: Match.arrayWith([
+            'secretsmanager:GetSecretValue',
+          ]),
+          Resource: Match.objectLike({
+            Ref: Match.stringLikeRegexp('^RedditCredentials'),
+          }),
+        }),
+      ]),
+    },
+  });
+});
+
+test('the harvester may write image bytes into the media bucket', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Effect: 'Allow',
+          Action: Match.arrayWith(['s3:PutObject']),
+          Resource: Match.objectLike({
+            'Fn::Join': [
+              '',
+              Match.arrayWith([
+                Match.objectLike({
+                  'Fn::GetAtt': [Match.stringLikeRegexp('^MediaBucket'), 'Arn'],
+                }),
+                '/*',
+              ]),
+            ],
+          }),
+        }),
+      ]),
+    },
+  });
+});
+
+test('the harvester does a delivery round every hour', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Scheduler::Schedule', {
+    ScheduleExpression: 'rate(1 hour)',
+    Target: Match.objectLike({
+      Arn: Match.objectLike({
+        'Fn::GetAtt': [Match.stringLikeRegexp('^HarvesterFunction'), 'Arn'],
+      }),
+    }),
+  });
+});
+
 test('the tagger listens to the stream but is only woken by inserted shitposts', () => {
   const template = synthesize();
 

@@ -18,6 +18,9 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as scheduler from 'aws-cdk-lib/aws-scheduler';
+import * as schedulerTargets from 'aws-cdk-lib/aws-scheduler-targets';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
 import { Telescope } from './telescope';
@@ -224,6 +227,40 @@ export class SignalStack extends cdk.Stack {
         ],
       }),
     );
+
+    const redditCredentials = new secretsmanager.Secret(this, 'RedditCredentials', {
+      secretName: 'the-vault/reddit',
+      description:
+        'Reddit script-app credentials for the Harvester: clientId, clientSecret, username, password',
+    });
+
+    const harvesterLogs = new logs.LogGroup(this, 'HarvesterLogs', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const harvesterFunction = new NodejsFunction(this, 'HarvesterFunction', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      entry: 'lambda/harvester/handler.ts',
+      logGroup: harvesterLogs,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      bundling: { externalModules: [] },
+      environment: {
+        CATALOGUE_TABLE_NAME: catalogueTable.tableName,
+        MEDIA_BUCKET_NAME: mediaBucket.bucketName,
+        REDDIT_SECRET_ID: 'the-vault/reddit',
+      },
+    });
+
+    catalogueTable.grantReadWriteData(harvesterFunction);
+    mediaBucket.grantPut(harvesterFunction);
+    redditCredentials.grantRead(harvesterFunction);
+
+    new scheduler.Schedule(this, 'HarvesterSchedule', {
+      schedule: scheduler.ScheduleExpression.rate(cdk.Duration.hours(1)),
+      target: new schedulerTargets.LambdaInvoke(harvesterFunction),
+    });
 
     profileBuilderFunction.addEventSource(
       new DynamoEventSource(catalogueTable, {
@@ -641,6 +678,56 @@ export class SignalStack extends cdk.Stack {
       ],
       true,
     );
+
+    NagSuppressions.addResourceSuppressions(
+      harvesterFunction,
+      [
+        {
+          id: 'AwsSolutions-IAM4',
+          reason:
+            'AWSLambdaBasicExecutionRole grants CloudWatch Logs write only — the least privilege this function needs.',
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: ['Action::kms:ReEncrypt*', 'Action::kms:GenerateDataKey*'],
+          reason:
+            'Canonical KMS grant shape from grantReadWriteData: the wildcards cover the WithoutPlaintext/From/To variants of two actions, scoped to the single hoard key.',
+        },
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: [
+            'Action::s3:Abort*',
+            {
+              regex: '/^Resource::<MediaBucket.*\\.Arn>\\/\\*$/',
+            },
+          ],
+          reason:
+            'Canonical grantPut shape: PutObject plus multipart abort on objects only, scoped to the single media bucket.',
+        },
+      ],
+      true,
+    );
+
+    NagSuppressions.addResourceSuppressionsByPath(
+      this,
+      `/${this.stackName}/SchedulerRoleForTarget-287d38/DefaultPolicy/Resource`,
+      [
+        {
+          id: 'AwsSolutions-IAM5',
+          appliesTo: [{ regex: '/^Resource::<HarvesterFunction.*\\.Arn>:\\*$/' }],
+          reason:
+            'Canonical scheduler-target shape: the :* suffix covers version-qualified ARNs of the one harvester function.',
+        },
+      ],
+    );
+
+    NagSuppressions.addResourceSuppressions(redditCredentials, [
+      {
+        id: 'AwsSolutions-SMG4',
+        reason:
+          'Reddit script-app credentials cannot be rotated programmatically — Reddit has no credential-rotation API; the secret is set manually and rotated by hand if compromised.',
+      },
+    ]);
 
     NagSuppressions.addResourceSuppressionsByPath(
       this,
