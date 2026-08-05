@@ -2,7 +2,10 @@ import {
   GetSecretValueCommand,
   SecretsManagerClient,
 } from '@aws-sdk/client-secrets-manager';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { mockClient } from 'aws-sdk-client-mock';
+import { httpImageDownloader } from '../lambda/harvester/adapters/http-image-download';
+import { s3MediaUpload } from '../lambda/harvester/adapters/s3-media-upload';
 import { secretsManagerRedditCredentials } from '../lambda/harvester/adapters/secrets-manager-credentials';
 import { createHarvestSavedPosts } from '../lambda/harvester/usecases/harvest-saved-posts';
 import type { SavedPost } from '../lambda/harvester/domain/saved-post';
@@ -152,5 +155,70 @@ describe('secrets manager reddit credentials', () => {
     });
 
     await expect(fetchCredentials()).rejects.toThrow();
+  });
+});
+
+describe('http image downloader', () => {
+  const imageResponse = (overrides: {
+    ok?: boolean;
+    status?: number;
+    contentType?: string | null;
+  } = {}) => ({
+    ok: overrides.ok ?? true,
+    status: overrides.status ?? 200,
+    headers: { get: () => overrides.contentType ?? 'image/jpeg' },
+    arrayBuffer: async () => new Uint8Array([9, 8, 7]).buffer,
+  });
+
+  it('downloads bytes and takes the media type from the content-type header', async () => {
+    const download = httpImageDownloader({
+      http: async () => imageResponse(),
+    }).download;
+
+    expect(await download('https://i.redd.it/abc123.jpg')).toEqual({
+      bytes: new Uint8Array([9, 8, 7]),
+      mediaType: 'image/jpeg',
+    });
+  });
+
+  it('rejects a response that is not a supported image', async () => {
+    const download = httpImageDownloader({
+      http: async () => imageResponse({ contentType: 'text/html' }),
+    }).download;
+
+    await expect(download('https://i.redd.it/gone.jpg')).rejects.toThrow();
+  });
+
+  it('rejects a failed response', async () => {
+    const download = httpImageDownloader({
+      http: async () => imageResponse({ ok: false, status: 404 }),
+    }).download;
+
+    await expect(download('https://i.redd.it/gone.jpg')).rejects.toThrow('404');
+  });
+});
+
+describe('s3 media upload', () => {
+  it('puts the image bytes under the key with its content type', async () => {
+    const s3 = mockClient(S3Client);
+    s3.on(PutObjectCommand).resolves({});
+
+    const media = s3MediaUpload({
+      client: new S3Client({}),
+      bucketName: 'vault-media',
+    });
+
+    await media.store('reddit/abc123.jpg', {
+      bytes: new Uint8Array([9, 8, 7]),
+      mediaType: 'image/jpeg',
+    });
+
+    expect(s3.commandCalls(PutObjectCommand)).toHaveLength(1);
+    expect(s3.commandCalls(PutObjectCommand)[0].args[0].input).toEqual({
+      Bucket: 'vault-media',
+      Key: 'reddit/abc123.jpg',
+      Body: new Uint8Array([9, 8, 7]),
+      ContentType: 'image/jpeg',
+    });
   });
 });
