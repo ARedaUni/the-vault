@@ -8,7 +8,12 @@ export type HttpClient = (
     headers?: Record<string, string>;
     body?: string;
   },
-) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+) => Promise<{
+  ok: boolean;
+  status: number;
+  json: () => Promise<unknown>;
+  text: () => Promise<string>;
+}>;
 
 export type RedditCredentials = {
   clientId: string;
@@ -69,17 +74,50 @@ const walkListing = async (options: {
   return posts;
 };
 
+const ATOM_ENTRY = /<entry>[\s\S]*?<\/entry>/g;
+const ENTRY_FULLNAME = /<id>(t\d+_[a-z0-9]+)<\/id>/;
+const ENTRY_IMAGE_URL = /https:\/\/i\.redd\.it\/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|gif|webp)/i;
+
+const atomEntries = (xml: string) =>
+  [...xml.matchAll(ATOM_ENTRY)].flatMap((match) => {
+    const fullname = match[0].match(ENTRY_FULLNAME)?.[1];
+    return fullname === undefined
+      ? []
+      : [{ fullname, imageUrl: match[0].match(ENTRY_IMAGE_URL)?.[0] }];
+  });
+
 export const redditFeedSavedPostSource = (options: {
   http: HttpClient;
   feedUrl: string;
 }): SavedPostSource => ({
-  fetchSaved: async () =>
-    walkListing({
-      http: options.http,
-      headers: { 'User-Agent': USER_AGENT },
-      pageUrl: (after) =>
-        `${options.feedUrl}&limit=100${after === null ? '' : `&after=${after}`}`,
-    }),
+  fetchSaved: async () => {
+    const posts = [];
+    const seen = new Set<string>();
+    let after: string | null = null;
+    for (;;) {
+      const cursor: string = after === null ? '' : `&after=${after}`;
+      const response = await options.http(
+        `${options.feedUrl}&limit=100${cursor}`,
+        { headers: { 'User-Agent': USER_AGENT } },
+      );
+      if (!response.ok) {
+        throw new Error(`reddit saved request failed: ${response.status}`);
+      }
+      const entries = atomEntries(await response.text());
+      const fresh = entries.filter((entry) => !seen.has(entry.fullname));
+      if (fresh.length === 0) return posts;
+
+      fresh.forEach((entry) => seen.add(entry.fullname));
+      posts.push(
+        ...fresh.flatMap((entry) =>
+          entry.fullname.startsWith('t3_') && entry.imageUrl !== undefined
+            ? [{ redditId: entry.fullname.slice(3), imageUrl: entry.imageUrl }]
+            : [],
+        ),
+      );
+      after = fresh[fresh.length - 1].fullname;
+    }
+  },
 });
 
 export const redditSavedPostSource = (options: {
