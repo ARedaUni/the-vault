@@ -21,13 +21,13 @@ const USER_AGENT = 'the-vault-harvester/1.0';
 
 const tokenSchema = z.object({ access_token: z.string().min(1) });
 
-const listingSchema = z.object({
+export const listingSchema = z.object({
   data: z.object({
     children: z.array(
       z.object({
         data: z.object({
           id: z.string().min(1),
-          url: z.string().min(1),
+          url: z.string().min(1).optional(),
         }),
       }),
     ),
@@ -36,6 +36,51 @@ const listingSchema = z.object({
 });
 
 const IMAGE_URL = /\.(jpg|jpeg|png|gif|webp)$/i;
+
+export const savedImagePosts = (
+  listing: z.infer<typeof listingSchema>,
+): { redditId: string; imageUrl: string }[] =>
+  listing.data.children
+    .map((child) => child.data)
+    .flatMap((post) =>
+      post.url !== undefined && IMAGE_URL.test(post.url)
+        ? [{ redditId: post.id, imageUrl: post.url }]
+        : [],
+    );
+
+const walkListing = async (options: {
+  http: HttpClient;
+  pageUrl: (after: string | null) => string;
+  headers: Record<string, string>;
+}) => {
+  const posts = [];
+  let after: string | null = null;
+  do {
+    const response = await options.http(options.pageUrl(after), {
+      headers: options.headers,
+    });
+    if (!response.ok) {
+      throw new Error(`reddit saved request failed: ${response.status}`);
+    }
+    const listing = listingSchema.parse(await response.json());
+    posts.push(...savedImagePosts(listing));
+    after = listing.data.after;
+  } while (after !== null);
+  return posts;
+};
+
+export const redditFeedSavedPostSource = (options: {
+  http: HttpClient;
+  feedUrl: string;
+}): SavedPostSource => ({
+  fetchSaved: async () =>
+    walkListing({
+      http: options.http,
+      headers: { 'User-Agent': USER_AGENT },
+      pageUrl: (after) =>
+        `${options.feedUrl}&limit=100${after === null ? '' : `&after=${after}`}`,
+    }),
+});
 
 export const redditSavedPostSource = (options: {
   http: HttpClient;
@@ -69,32 +114,15 @@ export const redditSavedPostSource = (options: {
   return {
     fetchSaved: async () => {
       const token = await fetchToken();
-      const posts = [];
-      let after: string | null = null;
-      do {
-        const cursor = after === null ? '' : `&after=${after}`;
-        const response = await http(
-          `https://oauth.reddit.com/user/${credentials.username}/saved?limit=100&raw_json=1${cursor}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'User-Agent': USER_AGENT,
-            },
-          },
-        );
-        if (!response.ok) {
-          throw new Error(`reddit saved request failed: ${response.status}`);
-        }
-        const listing = listingSchema.parse(await response.json());
-        posts.push(
-          ...listing.data.children
-            .map((child) => child.data)
-            .filter((post) => IMAGE_URL.test(post.url))
-            .map((post) => ({ redditId: post.id, imageUrl: post.url })),
-        );
-        after = listing.data.after;
-      } while (after !== null);
-      return posts;
+      return walkListing({
+        http,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'User-Agent': USER_AGENT,
+        },
+        pageUrl: (after) =>
+          `https://oauth.reddit.com/user/${credentials.username}/saved?limit=100&raw_json=1${after === null ? '' : `&after=${after}`}`,
+      });
     },
   };
 };

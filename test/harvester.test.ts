@@ -6,7 +6,10 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { mockClient } from 'aws-sdk-client-mock';
 import { httpImageDownloader } from '../lambda/harvester/adapters/http-image-download';
 import { s3MediaUpload } from '../lambda/harvester/adapters/s3-media-upload';
-import { secretsManagerRedditCredentials } from '../lambda/harvester/adapters/secrets-manager-credentials';
+import {
+  secretsManagerFeedUrl,
+  secretsManagerRedditCredentials,
+} from '../lambda/harvester/adapters/secrets-manager-credentials';
 import { createHarvestSavedPosts } from '../lambda/harvester/usecases/harvest-saved-posts';
 import type { SavedPost } from '../lambda/harvester/domain/saved-post';
 import type { StoredImage } from '../lambda/tagger/domain/media-store';
@@ -155,6 +158,42 @@ describe('secrets manager reddit credentials', () => {
     });
 
     await expect(fetchCredentials()).rejects.toThrow();
+  });
+});
+
+describe('secrets manager feed url', () => {
+  it('reads and validates the private feed url from the named secret', async () => {
+    const secretsManager = mockClient(SecretsManagerClient);
+    secretsManager
+      .on(GetSecretValueCommand, { SecretId: 'the-vault/reddit' })
+      .resolves({
+        SecretString: JSON.stringify({
+          feedUrl: 'https://www.reddit.com/saved.json?feed=feed-token&user=ali',
+        }),
+      });
+
+    const fetchFeedUrl = secretsManagerFeedUrl({
+      client: new SecretsManagerClient({}),
+      secretId: 'the-vault/reddit',
+    });
+
+    expect(await fetchFeedUrl()).toBe(
+      'https://www.reddit.com/saved.json?feed=feed-token&user=ali',
+    );
+  });
+
+  it('rejects a secret whose feed url is not a url', async () => {
+    const secretsManager = mockClient(SecretsManagerClient);
+    secretsManager.on(GetSecretValueCommand).resolves({
+      SecretString: JSON.stringify({ feedUrl: 'not-a-url' }),
+    });
+
+    const fetchFeedUrl = secretsManagerFeedUrl({
+      client: new SecretsManagerClient({}),
+      secretId: 'the-vault/reddit',
+    });
+
+    await expect(fetchFeedUrl()).rejects.toThrow();
   });
 });
 

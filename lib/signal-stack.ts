@@ -229,9 +229,8 @@ export class SignalStack extends cdk.Stack {
     );
 
     const redditCredentials = new secretsmanager.Secret(this, 'RedditCredentials', {
-      secretName: 'the-vault/reddit',
       description:
-        'Reddit script-app credentials for the Harvester: clientId, clientSecret, username, password',
+        'Reddit private saved-posts feed for the Harvester: { feedUrl } from reddit.com/prefs/feeds',
     });
 
     const harvesterLogs = new logs.LogGroup(this, 'HarvesterLogs', {
@@ -249,7 +248,7 @@ export class SignalStack extends cdk.Stack {
       environment: {
         CATALOGUE_TABLE_NAME: catalogueTable.tableName,
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
-        REDDIT_SECRET_ID: 'the-vault/reddit',
+        REDDIT_SECRET_ID: redditCredentials.secretName,
       },
     });
 
@@ -260,6 +259,10 @@ export class SignalStack extends cdk.Stack {
     new scheduler.Schedule(this, 'HarvesterSchedule', {
       schedule: scheduler.ScheduleExpression.rate(cdk.Duration.hours(1)),
       target: new schedulerTargets.LambdaInvoke(harvesterFunction),
+    });
+
+    new cdk.CfnOutput(this, 'RedditSecretName', {
+      value: redditCredentials.secretName,
     });
 
     profileBuilderFunction.addEventSource(

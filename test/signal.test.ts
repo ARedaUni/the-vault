@@ -742,7 +742,7 @@ test('the harvester Lambda knows the table, the media bucket, and the secret nam
       Variables: {
         CATALOGUE_TABLE_NAME: Match.anyValue(),
         MEDIA_BUCKET_NAME: Match.anyValue(),
-        REDDIT_SECRET_ID: 'the-vault/reddit',
+        REDDIT_SECRET_ID: Match.anyValue(),
       },
     },
   });

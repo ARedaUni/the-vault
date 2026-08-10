@@ -1,4 +1,7 @@
-import { redditSavedPostSource } from '../lambda/harvester/adapters/reddit-saved';
+import {
+  redditFeedSavedPostSource,
+  redditSavedPostSource,
+} from '../lambda/harvester/adapters/reddit-saved';
 
 type CapturedRequest = {
   url: string;
@@ -94,6 +97,25 @@ describe('reddit saved-post source', () => {
     ]);
   });
 
+  it('tolerates saved comments, which have no url', async () => {
+    const { http } = fakeReddit({
+      'https://www.reddit.com/api/v1/access_token': () => ({
+        access_token: 'token-123',
+      }),
+      'https://oauth.reddit.com/user/ali/saved': () =>
+        aListing([
+          { kind: 't1', data: { id: 'cmt001', body: 'a saved comment' } },
+          anImageChild('img003', 'https://i.redd.it/img003.webp'),
+        ]),
+    });
+
+    const source = redditSavedPostSource({ http, credentials });
+
+    expect(await source.fetchSaved()).toEqual([
+      { redditId: 'img003', imageUrl: 'https://i.redd.it/img003.webp' },
+    ]);
+  });
+
   it('follows the after cursor until the listing runs out', async () => {
     let savedCalls = 0;
     const pages = [
@@ -114,5 +136,37 @@ describe('reddit saved-post source', () => {
       { redditId: 'page2', imageUrl: 'https://i.redd.it/page2.jpg' },
     ]);
     expect(requests[2].url).toContain('after=t3_page1');
+  });
+});
+
+describe('reddit feed saved-post source', () => {
+  const feedUrl = 'https://www.reddit.com/saved.json?feed=feed-token&user=ali';
+
+  it('walks the private feed with no token handshake and returns image posts', async () => {
+    let calls = 0;
+    const pages = [
+      aListing(
+        [
+          anImageChild('page1', 'https://i.redd.it/page1.jpg'),
+          { kind: 't1', data: { id: 'cmt001' } },
+        ],
+        't3_page1',
+      ),
+      aListing([anImageChild('page2', 'https://i.redd.it/page2.png')], null),
+    ];
+    const { http, requests } = fakeReddit({
+      'https://www.reddit.com/saved.json': () => pages[calls++],
+    });
+
+    const source = redditFeedSavedPostSource({ http, feedUrl });
+
+    expect(await source.fetchSaved()).toEqual([
+      { redditId: 'page1', imageUrl: 'https://i.redd.it/page1.jpg' },
+      { redditId: 'page2', imageUrl: 'https://i.redd.it/page2.png' },
+    ]);
+    expect(requests[0].url).toContain('feed=feed-token');
+    expect(requests[0].url).toContain('limit=100');
+    expect(requests[0].headers?.['User-Agent']).toContain('the-vault');
+    expect(requests[1].url).toContain('after=t3_page1');
   });
 });

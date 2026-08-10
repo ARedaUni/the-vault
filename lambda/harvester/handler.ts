@@ -5,9 +5,9 @@ import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { z } from 'zod';
 import { dynamoDbShitpostRepository } from '../catalogue/adapters/shitposts';
 import { httpImageDownloader } from './adapters/http-image-download';
-import { redditSavedPostSource } from './adapters/reddit-saved';
+import { redditFeedSavedPostSource } from './adapters/reddit-saved';
 import { s3MediaUpload } from './adapters/s3-media-upload';
-import { secretsManagerRedditCredentials } from './adapters/secrets-manager-credentials';
+import { secretsManagerFeedUrl } from './adapters/secrets-manager-credentials';
 import { createHarvestSavedPosts } from './usecases/harvest-saved-posts';
 import type { HarvestSummary } from './usecases/harvest-saved-posts';
 
@@ -19,7 +19,7 @@ const envSchema = z.object({
 
 const env = envSchema.parse(process.env);
 
-const fetchCredentials = secretsManagerRedditCredentials({
+const fetchFeedUrl = secretsManagerFeedUrl({
   client: new SecretsManagerClient({}),
   secretId: env.REDDIT_SECRET_ID,
 });
@@ -37,9 +37,9 @@ const media = s3MediaUpload({
 const images = httpImageDownloader({ http: fetch });
 
 export const handler = async (): Promise<HarvestSummary> => {
-  const credentials = await fetchCredentials();
+  const feedUrl = await fetchFeedUrl();
   const harvest = createHarvestSavedPosts({
-    source: redditSavedPostSource({ http: fetch, credentials }),
+    source: redditFeedSavedPostSource({ http: fetch, feedUrl }),
     images,
     media,
     shitposts,

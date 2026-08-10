@@ -12,15 +12,31 @@ const credentialsSchema = z.object({
   password: z.string().min(1),
 });
 
-export const secretsManagerRedditCredentials = (options: {
+const feedSecretSchema = z.object({
+  feedUrl: z.url(),
+});
+
+const secretJson = async (options: {
   client: SecretsManagerClient;
   secretId: string;
-}): (() => Promise<RedditCredentials>) => async () => {
+}): Promise<unknown> => {
   const result = await options.client.send(
     new GetSecretValueCommand({ SecretId: options.secretId }),
   );
   if (result.SecretString === undefined) {
     throw new Error(`secret ${options.secretId} has no string value`);
   }
-  return credentialsSchema.parse(JSON.parse(result.SecretString));
+  return JSON.parse(result.SecretString);
 };
+
+export const secretsManagerRedditCredentials = (options: {
+  client: SecretsManagerClient;
+  secretId: string;
+}): (() => Promise<RedditCredentials>) => async () =>
+  credentialsSchema.parse(await secretJson(options));
+
+export const secretsManagerFeedUrl = (options: {
+  client: SecretsManagerClient;
+  secretId: string;
+}): (() => Promise<string>) => async () =>
+  feedSecretSchema.parse(await secretJson(options)).feedUrl;
