@@ -98,7 +98,13 @@ export const redditFeedSavedPostSource = (options: {
       const cursor: string = after === null ? '' : `&after=${after}`;
       const response = await options.http(
         `${options.feedUrl}&limit=100${cursor}`,
-        { headers: { 'User-Agent': USER_AGENT } },
+        {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+            Accept: 'application/atom+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+        },
       );
       if (!response.ok) {
         const body = (await response.text()).slice(0, 300);

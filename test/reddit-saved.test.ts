@@ -176,7 +176,7 @@ describe('reddit feed saved-post source', () => {
     ]);
     expect(requests[0].url).toContain('feed=feed-token');
     expect(requests[0].url).toContain('limit=100');
-    expect(requests[0].headers?.['User-Agent']).toContain('the-vault');
+    expect(requests[0].headers?.['User-Agent']).toContain('Mozilla');
     expect(requests[1].url).toContain('after=t3_text1');
     expect(requests[2].url).toContain('after=t3_page2');
   });
