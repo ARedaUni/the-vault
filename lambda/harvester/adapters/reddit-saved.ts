@@ -101,7 +101,8 @@ export const redditFeedSavedPostSource = (options: {
         { headers: { 'User-Agent': USER_AGENT } },
       );
       if (!response.ok) {
-        throw new Error(`reddit saved request failed: ${response.status}`);
+        const body = (await response.text()).slice(0, 300);
+        throw new Error(`reddit saved request failed: ${response.status} ${body}`);
       }
       const entries = atomEntries(await response.text());
       const fresh = entries.filter((entry) => !seen.has(entry.fullname));
