@@ -1,5 +1,5 @@
-import type { Shitpost } from '../domain/shitpost';
-import type { ShitpostRepository } from '../domain/shitpost-repository';
+import type { Shitpost } from '../../shared/domain/shitpost';
+import type { ShitpostRepository } from '../../shared/domain/shitpost-repository';
 import type { TasteProfile, TasteProfileReader } from '../domain/taste-profile';
 
 const affinity = (shitpost: Shitpost, profile: TasteProfile): number =>

@@ -1,7 +1,7 @@
 import type { APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
-import { shitpostSchema } from '../domain/shitpost';
-import { signalRequestSchema } from '../domain/signal';
-import type { ShitpostRepository } from '../domain/shitpost-repository';
+import { shitpostSchema } from '../../shared/domain/shitpost';
+import { signalRequestSchema } from '../../shared/domain/signal';
+import type { ShitpostRepository } from '../../shared/domain/shitpost-repository';
 import type { SignalRepository } from '../domain/signal-repository';
 import type { TasteProfileReader } from '../domain/taste-profile';
 import { addShitpost } from '../usecases/add-shitpost';

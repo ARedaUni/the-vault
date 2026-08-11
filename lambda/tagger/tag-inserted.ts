@@ -1,7 +1,7 @@
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import type { AttributeValue } from '@aws-sdk/client-dynamodb';
-import { shitpostSchema } from '../catalogue/domain/shitpost';
-import type { Shitpost } from '../catalogue/domain/shitpost';
+import { shitpostSchema } from '../shared/domain/shitpost';
+import type { Shitpost } from '../shared/domain/shitpost';
 import { createTagShitpost } from './usecases/tag-shitpost';
 import type { TaggerPorts } from './usecases/tag-shitpost';
 

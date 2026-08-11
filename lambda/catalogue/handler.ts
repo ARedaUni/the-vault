@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
-import { dynamoDbShitpostRepository } from './adapters/shitposts';
+import { dynamoDbShitpostRepository } from '../shared/adapters/dynamodb-shitposts';
 import { dynamoDbSignalRepository } from './adapters/signals';
 import { dynamoDbTasteProfileReader } from './adapters/taste-profiles';
 import { createShitpostsHandler } from './routes/shitposts';

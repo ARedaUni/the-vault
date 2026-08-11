@@ -9,7 +9,7 @@ import { s3MediaUpload } from '../lambda/harvester/adapters/s3-media-upload';
 import { secretsManagerFeedUrl } from '../lambda/harvester/adapters/secrets-manager-feed-url';
 import { createHarvestSavedPosts } from '../lambda/harvester/usecases/harvest-saved-posts';
 import type { SavedPost } from '../lambda/harvester/domain/saved-post';
-import type { StoredImage } from '../lambda/tagger/domain/media-store';
+import type { StoredImage } from '../lambda/shared/domain/media';
 import { aShitpost, inMemoryRepository } from './support/catalogue';
 
 const aSavedPost = (overrides: Partial<SavedPost> = {}): SavedPost => ({

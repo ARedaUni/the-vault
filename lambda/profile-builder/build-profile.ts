@@ -1,7 +1,7 @@
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import type { AttributeValue } from '@aws-sdk/client-dynamodb';
-import { signalSchema } from '../catalogue/domain/signal';
-import type { Signal } from '../catalogue/domain/signal';
+import { signalSchema } from '../shared/domain/signal';
+import type { Signal } from '../shared/domain/signal';
 import type { TasteProfileRepository } from './domain/taste-profile-repository';
 
 export type StreamRecord = {

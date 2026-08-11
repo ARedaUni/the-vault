@@ -1,4 +1,4 @@
-import type { ShitpostRepository } from '../domain/shitpost-repository';
+import type { ShitpostRepository } from '../../shared/domain/shitpost-repository';
 
 export type RepositoryMeasurements = {
   repositoryDurationMs: number;

@@ -1,5 +1,5 @@
-import type { Shitpost } from '../../catalogue/domain/shitpost';
-import type { ShitpostRepository } from '../../catalogue/domain/shitpost-repository';
+import type { Shitpost } from '../../shared/domain/shitpost';
+import type { ShitpostRepository } from '../../shared/domain/shitpost-repository';
 import type { MediaStore } from '../domain/media-store';
 import type { VisionTagger } from '../domain/vision-tagger';
 

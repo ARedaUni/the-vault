@@ -1,5 +1,5 @@
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
-import type { Signal } from '../domain/signal';
+import type { Signal } from '../../shared/domain/signal';
 import type { SignalRepository } from '../domain/signal-repository';
 
 const toItem = (signal: Signal): Record<string, unknown> => ({

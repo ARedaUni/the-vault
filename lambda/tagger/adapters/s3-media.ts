@@ -1,5 +1,5 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { imageMediaTypeSchema } from '../domain/media-store';
+import { imageMediaTypeSchema } from '../../shared/domain/media';
 import type { MediaStore } from '../domain/media-store';
 
 export const s3MediaStore = (options: {

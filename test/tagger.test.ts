@@ -12,7 +12,8 @@ import {
   type VisionModelClient,
 } from '../lambda/tagger/adapters/bedrock-vision';
 import { s3MediaStore } from '../lambda/tagger/adapters/s3-media';
-import type { MediaStore, StoredImage } from '../lambda/tagger/domain/media-store';
+import type { MediaStore } from '../lambda/tagger/domain/media-store';
+import type { StoredImage } from '../lambda/shared/domain/media';
 import type { VisionTagger } from '../lambda/tagger/domain/vision-tagger';
 
 const anImage = (overrides: Partial<StoredImage> = {}): StoredImage => ({

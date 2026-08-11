@@ -1,4 +1,4 @@
-import type { StoredImage } from '../../tagger/domain/media-store';
+import type { StoredImage } from '../../shared/domain/media';
 
 export type ImageDownloader = {
   download: (url: string) => Promise<StoredImage>;

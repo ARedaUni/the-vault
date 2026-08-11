@@ -1,6 +1,6 @@
-import type { Signal, SignalRequest } from '../domain/signal';
+import type { Signal, SignalRequest } from '../../shared/domain/signal';
 import type { SignalRepository } from '../domain/signal-repository';
-import type { ShitpostRepository } from '../domain/shitpost-repository';
+import type { ShitpostRepository } from '../../shared/domain/shitpost-repository';
 
 export const recordSignal = async (options: {
   shitposts: ShitpostRepository;

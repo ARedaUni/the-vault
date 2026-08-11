@@ -5,11 +5,11 @@ import {
   QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
-import { dynamoDbShitpostRepository } from '../../lambda/catalogue/adapters/shitposts';
+import { dynamoDbShitpostRepository } from '../../lambda/shared/adapters/dynamodb-shitposts';
 import type { CanonicalRequestEvent } from '../../lambda/catalogue/routes/shitposts';
-import type { Shitpost } from '../../lambda/catalogue/domain/shitpost';
-import type { ShitpostRepository } from '../../lambda/catalogue/domain/shitpost-repository';
-import type { Signal } from '../../lambda/catalogue/domain/signal';
+import type { Shitpost } from '../../lambda/shared/domain/shitpost';
+import type { ShitpostRepository } from '../../lambda/shared/domain/shitpost-repository';
+import type { Signal } from '../../lambda/shared/domain/signal';
 import type { SignalRepository } from '../../lambda/catalogue/domain/signal-repository';
 import type { TasteProfile, TasteProfileReader } from '../../lambda/catalogue/domain/taste-profile';
 

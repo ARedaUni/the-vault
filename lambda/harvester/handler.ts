@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { S3Client } from '@aws-sdk/client-s3';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 import { z } from 'zod';
-import { dynamoDbShitpostRepository } from '../catalogue/adapters/shitposts';
+import { dynamoDbShitpostRepository } from '../shared/adapters/dynamodb-shitposts';
 import { httpImageDownloader } from './adapters/http-image-download';
 import { redditFeedSavedPostSource } from './adapters/reddit-saved';
 import { s3MediaUpload } from './adapters/s3-media-upload';

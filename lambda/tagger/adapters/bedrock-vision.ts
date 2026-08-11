@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ImageMediaType } from '../domain/media-store';
+import type { ImageMediaType } from '../../shared/domain/media';
 import type { VisionTagger } from '../domain/vision-tagger';
 
 type VisionRequest = {

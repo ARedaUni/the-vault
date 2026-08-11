@@ -1,4 +1,4 @@
-import { imageMediaTypeSchema } from '../../tagger/domain/media-store';
+import { imageMediaTypeSchema } from '../../shared/domain/media';
 import type { ImageDownloader } from '../domain/media-upload';
 
 export type BinaryHttpClient = (

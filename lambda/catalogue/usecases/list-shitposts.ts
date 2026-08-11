@@ -1,5 +1,5 @@
-import type { Shitpost } from '../domain/shitpost';
-import type { ShitpostRepository } from '../domain/shitpost-repository';
+import type { Shitpost } from '../../shared/domain/shitpost';
+import type { ShitpostRepository } from '../../shared/domain/shitpost-repository';
 
 export const listShitposts = async (
   repository: ShitpostRepository,

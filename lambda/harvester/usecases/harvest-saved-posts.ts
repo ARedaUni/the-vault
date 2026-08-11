@@ -1,4 +1,4 @@
-import type { ShitpostRepository } from '../../catalogue/domain/shitpost-repository';
+import type { ShitpostRepository } from '../../shared/domain/shitpost-repository';
 import type { ImageDownloader, MediaUpload } from '../domain/media-upload';
 import type { SavedPost, SavedPostSource } from '../domain/saved-post';
 
