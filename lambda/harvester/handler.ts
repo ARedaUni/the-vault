@@ -7,7 +7,7 @@ import { dynamoDbShitpostRepository } from '../catalogue/adapters/shitposts';
 import { httpImageDownloader } from './adapters/http-image-download';
 import { redditFeedSavedPostSource } from './adapters/reddit-saved';
 import { s3MediaUpload } from './adapters/s3-media-upload';
-import { secretsManagerFeedUrl } from './adapters/secrets-manager-credentials';
+import { secretsManagerFeedUrl } from './adapters/secrets-manager-feed-url';
 import { createHarvestSavedPosts } from './usecases/harvest-saved-posts';
 import type { HarvestSummary } from './usecases/harvest-saved-posts';
 

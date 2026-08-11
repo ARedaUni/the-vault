@@ -6,10 +6,7 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { mockClient } from 'aws-sdk-client-mock';
 import { httpImageDownloader } from '../lambda/harvester/adapters/http-image-download';
 import { s3MediaUpload } from '../lambda/harvester/adapters/s3-media-upload';
-import {
-  secretsManagerFeedUrl,
-  secretsManagerRedditCredentials,
-} from '../lambda/harvester/adapters/secrets-manager-credentials';
+import { secretsManagerFeedUrl } from '../lambda/harvester/adapters/secrets-manager-feed-url';
 import { createHarvestSavedPosts } from '../lambda/harvester/usecases/harvest-saved-posts';
 import type { SavedPost } from '../lambda/harvester/domain/saved-post';
 import type { StoredImage } from '../lambda/tagger/domain/media-store';
@@ -116,48 +113,6 @@ describe('harvest saved posts', () => {
 
     expect(summary).toEqual({ harvested: 1, skipped: 0, failed: 1 });
     expect(media.storedKeys()).toEqual(['reddit/alive2.png']);
-  });
-});
-
-describe('secrets manager reddit credentials', () => {
-  it('reads and validates the credentials JSON from the named secret', async () => {
-    const secretsManager = mockClient(SecretsManagerClient);
-    secretsManager
-      .on(GetSecretValueCommand, { SecretId: 'the-vault/reddit' })
-      .resolves({
-        SecretString: JSON.stringify({
-          clientId: 'app-id',
-          clientSecret: 'app-secret',
-          username: 'ali',
-          password: 'hunter2',
-        }),
-      });
-
-    const fetchCredentials = secretsManagerRedditCredentials({
-      client: new SecretsManagerClient({}),
-      secretId: 'the-vault/reddit',
-    });
-
-    expect(await fetchCredentials()).toEqual({
-      clientId: 'app-id',
-      clientSecret: 'app-secret',
-      username: 'ali',
-      password: 'hunter2',
-    });
-  });
-
-  it('rejects a secret missing required fields', async () => {
-    const secretsManager = mockClient(SecretsManagerClient);
-    secretsManager.on(GetSecretValueCommand).resolves({
-      SecretString: JSON.stringify({ clientId: 'app-id' }),
-    });
-
-    const fetchCredentials = secretsManagerRedditCredentials({
-      client: new SecretsManagerClient({}),
-      secretId: 'the-vault/reddit',
-    });
-
-    await expect(fetchCredentials()).rejects.toThrow();
   });
 });
 
