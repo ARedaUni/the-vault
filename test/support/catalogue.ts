@@ -6,7 +6,12 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { dynamoDbShitpostRepository } from '../../lambda/shared/adapters/dynamodb-shitposts';
-import type { CanonicalRequestEvent } from '../../lambda/catalogue/routes/shitposts';
+import { createShitpostsHandler } from '../../lambda/catalogue/routes/shitposts';
+import type {
+  CanonicalRequestEvent,
+  CataloguePorts,
+  TelemetryOptions,
+} from '../../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../../lambda/shared/domain/shitpost';
 import type { ShitpostRepository } from '../../lambda/shared/domain/shitpost-repository';
 import type { Signal } from '../../lambda/shared/domain/signal';
@@ -66,6 +71,21 @@ export const inMemoryTasteProfiles = (
 ): TasteProfileReader => ({
   findByUser: async (userId) => profiles[userId] ?? {},
 });
+
+type PortOverrides = Partial<CataloguePorts> & Pick<CataloguePorts, 'shitposts'>;
+
+export const aCatalogueHandler = (
+  ports: PortOverrides,
+  options: TelemetryOptions = {},
+) =>
+  createShitpostsHandler(
+    {
+      signals: inMemorySignalRepository(),
+      profiles: inMemoryTasteProfiles({}),
+      ...ports,
+    },
+    options,
+  );
 
 const toRow = (shitpost: Shitpost) => ({
   PK: 'SHITPOST',

@@ -4,7 +4,6 @@ import { mockClient } from 'aws-sdk-client-mock';
 import { dynamoDbShitpostRepository } from '../lambda/shared/adapters/dynamodb-shitposts';
 import { dynamoDbSignalRepository } from '../lambda/catalogue/adapters/signals';
 import { dynamoDbTasteProfileReader } from '../lambda/catalogue/adapters/taste-profiles';
-import { createShitpostsHandler } from '../lambda/catalogue/routes/shitposts';
 import type { CatalogueEvent } from '../lambda/catalogue/routes/shitposts';
 import type { Shitpost } from '../lambda/shared/domain/shitpost';
 import type { ShitpostRepository } from '../lambda/shared/domain/shitpost-repository';
@@ -12,6 +11,7 @@ import { withRepositoryTelemetry } from '../lambda/catalogue/telemetry/repositor
 import { emfFormat } from '../lambda/catalogue/telemetry/emf';
 import {
   aCanonicalEvent,
+  aCatalogueHandler,
   aShitpost,
   dynamoDbBackedRepository,
   inMemoryRepository,
@@ -131,10 +131,10 @@ test('the canonical event carries repository timing and item count', async () =>
     { now: tickingClock(30) },
   );
   const events: Record<string, unknown>[] = [];
-  const handler = createShitpostsHandler(repository, {
-    emit: (event) => events.push(event),
-    collect: drain,
-  });
+  const handler = aCatalogueHandler(
+    { shitposts: repository },
+    { emit: (event) => events.push(event), collect: drain },
+  );
 
   await handler(aRequest());
 
@@ -264,7 +264,9 @@ test('GET /shitposts responds 200 with the hoard as JSON, newest first', async (
     shitpostKey: 'media/ancient.png',
     uploadedAt: '2025-10-08T09:00:00Z',
   });
-  const handler = createShitpostsHandler(inMemoryRepository([oldest, newest]));
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository([oldest, newest]),
+  });
 
   const response = await handler(aRequest());
 
@@ -277,7 +279,7 @@ test('GET /shitposts responds 200 with the hoard as JSON, newest first', async (
 
 test('POST /shitposts stores a valid shitpost and responds 201', async () => {
   const repository = inMemoryRepository([]);
-  const handler = createShitpostsHandler(repository);
+  const handler = aCatalogueHandler({ shitposts: repository });
   const fresh = aShitpost({ shitpostKey: 'media/just-posted.png' });
 
   const response = await handler(aPostRequest(fresh));
@@ -289,7 +291,7 @@ test('POST /shitposts stores a valid shitpost and responds 201', async () => {
 
 test('POST /shitposts rejects an invalid body with 400 and stores nothing', async () => {
   const repository = inMemoryRepository([]);
-  const handler = createShitpostsHandler(repository);
+  const handler = aCatalogueHandler({ shitposts: repository });
 
   const response = await handler(
     aPostRequest({ shitpostKey: '', uploadedAt: 'not-a-date' }),
@@ -315,10 +317,10 @@ test('GET /feed ranks the hoard by tag affinity, then newest first', async () =>
     uploadedAt: '2026-03-01T00:00:00Z',
     tags: [],
   });
-  const handler = createShitpostsHandler(
-    inMemoryRepository([memePost, vintagePost, catPost]),
-    { profiles: inMemoryTasteProfiles({ ali: { cats: 4, memes: 1 } }) },
-  );
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository([memePost, vintagePost, catPost]),
+    profiles: inMemoryTasteProfiles({ ali: { cats: 4, memes: 1 } }),
+  });
 
   const response = await handler(
     aRequest({ rawPath: '/feed', queryStringParameters: { userId: 'ali' } }),
@@ -333,7 +335,8 @@ test('GET /feed ranks the hoard by tag affinity, then newest first', async () =>
 test('GET /feed for a user with no profile yet falls back to newest first', async () => {
   const newest = aShitpost({ shitpostKey: 'media/new.png', uploadedAt: '2026-06-01T00:00:00Z' });
   const oldest = aShitpost({ shitpostKey: 'media/old.png', uploadedAt: '2026-01-01T00:00:00Z' });
-  const handler = createShitpostsHandler(inMemoryRepository([oldest, newest]), {
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository([oldest, newest]),
     profiles: inMemoryTasteProfiles({}),
   });
 
@@ -345,7 +348,8 @@ test('GET /feed for a user with no profile yet falls back to newest first', asyn
 });
 
 test('GET /feed without a userId is rejected with 400', async () => {
-  const handler = createShitpostsHandler(inMemoryRepository([]), {
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository([]),
     profiles: inMemoryTasteProfiles({}),
   });
 
@@ -390,11 +394,14 @@ const aSignalRequest = (body: unknown): CatalogueEvent =>
 
 test('POST /signals stores a signal carrying the shitpost tags at that moment', async () => {
   const signals = inMemorySignalRepository();
-  const handler = createShitpostsHandler(
-    inMemoryRepository([
-      aShitpost({ shitpostKey: 'media/cat.png', tags: ['cats', 'programming'] }),
-    ]),
-    { signals, now: () => 1753500000000 },
+  const handler = aCatalogueHandler(
+    {
+      shitposts: inMemoryRepository([
+        aShitpost({ shitpostKey: 'media/cat.png', tags: ['cats', 'programming'] }),
+      ]),
+      signals,
+    },
+    { now: () => 1753500000000 },
   );
 
   const response = await handler(
@@ -414,7 +421,10 @@ test('POST /signals stores a signal carrying the shitpost tags at that moment', 
 
 test('POST /signals responds 404 for an unknown shitpost and stores nothing', async () => {
   const signals = inMemorySignalRepository();
-  const handler = createShitpostsHandler(inMemoryRepository([]), { signals });
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository([]),
+    signals,
+  });
 
   const response = await handler(
     aSignalRequest({ userId: 'ali', shitpostKey: 'media/does-not-exist.png' }),
@@ -426,7 +436,10 @@ test('POST /signals responds 404 for an unknown shitpost and stores nothing', as
 
 test('POST /signals rejects an invalid body with 400 and stores nothing', async () => {
   const signals = inMemorySignalRepository();
-  const handler = createShitpostsHandler(inMemoryRepository([]), { signals });
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository([]),
+    signals,
+  });
 
   const response = await handler(aSignalRequest({ userId: '', shitpostKey: '' }));
 
@@ -435,7 +448,7 @@ test('POST /signals rejects an invalid body with 400 and stores nothing', async 
 });
 
 test('POST /shitposts rejects a body that is not JSON with 400', async () => {
-  const handler = createShitpostsHandler(inMemoryRepository([]));
+  const handler = aCatalogueHandler({ shitposts: inMemoryRepository([]) });
 
   const response = await handler(
     aRequest({
@@ -454,10 +467,10 @@ const tickingClock = (stepMs: number) => {
 
 test('every request emits exactly one canonical event carrying the request vitals', async () => {
   const events: Record<string, unknown>[] = [];
-  const handler = createShitpostsHandler(inMemoryRepository([aShitpost()]), {
-    emit: (event) => events.push(event),
-    now: tickingClock(125),
-  });
+  const handler = aCatalogueHandler(
+    { shitposts: inMemoryRepository([aShitpost()]) },
+    { emit: (event) => events.push(event), now: tickingClock(125) },
+  );
 
   await handler(
     aRequest({
@@ -480,9 +493,10 @@ test('every request emits exactly one canonical event carrying the request vital
 
 test('only the first request on a container counts as a cold start', async () => {
   const events: Record<string, unknown>[] = [];
-  const handler = createShitpostsHandler(inMemoryRepository([]), {
-    emit: (event) => events.push(event),
-  });
+  const handler = aCatalogueHandler(
+    { shitposts: inMemoryRepository([]) },
+    { emit: (event) => events.push(event) },
+  );
 
   await handler(aRequest());
   await handler(aRequest());
@@ -502,9 +516,10 @@ test('a repository failure still emits the canonical event, naming the error cla
     },
   };
   const events: Record<string, unknown>[] = [];
-  const handler = createShitpostsHandler(brokenRepository, {
-    emit: (event) => events.push(event),
-  });
+  const handler = aCatalogueHandler(
+    { shitposts: brokenRepository },
+    { emit: (event) => events.push(event) },
+  );
 
   await handler(aRequest());
 
@@ -522,7 +537,7 @@ test('GET /shitposts responds 500 without leaking internals when the catalogue i
       throw new Error('unreachable');
     },
   };
-  const handler = createShitpostsHandler(brokenRepository);
+  const handler = aCatalogueHandler({ shitposts: brokenRepository });
 
   const response = await handler(aRequest());
 

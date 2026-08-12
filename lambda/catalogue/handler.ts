@@ -19,15 +19,20 @@ const { repository, drain } = withRepositoryTelemetry(
   }),
 );
 
-export const handler = createShitpostsHandler(repository, {
-  emit: (event) => console.log(emfFormat(event)),
-  collect: drain,
-  signals: dynamoDbSignalRepository({
-    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
-    tableName: environment.CATALOGUE_TABLE_NAME,
-  }),
-  profiles: dynamoDbTasteProfileReader({
-    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
-    tableName: environment.CATALOGUE_TABLE_NAME,
-  }),
-});
+export const handler = createShitpostsHandler(
+  {
+    shitposts: repository,
+    signals: dynamoDbSignalRepository({
+      client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+      tableName: environment.CATALOGUE_TABLE_NAME,
+    }),
+    profiles: dynamoDbTasteProfileReader({
+      client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+      tableName: environment.CATALOGUE_TABLE_NAME,
+    }),
+  },
+  {
+    emit: (event) => console.log(emfFormat(event)),
+    collect: drain,
+  },
+);

@@ -28,12 +28,16 @@ export type CanonicalRequestEvent = {
   itemCount?: number;
 };
 
-type HandlerOptions = {
+export type CataloguePorts = {
+  shitposts: ShitpostRepository;
+  signals: SignalRepository;
+  profiles: TasteProfileReader;
+};
+
+export type TelemetryOptions = {
   emit?: (event: CanonicalRequestEvent) => void;
   now?: () => number;
   collect?: () => Pick<CanonicalRequestEvent, 'repositoryDurationMs' | 'itemCount'>;
-  signals?: SignalRepository;
-  profiles?: TasteProfileReader;
 };
 
 const json = (
@@ -54,8 +58,7 @@ const parseJson = (body?: string): unknown => {
 };
 
 const postSignal = async (
-  repository: ShitpostRepository,
-  signals: SignalRepository,
+  ports: CataloguePorts,
   event: CatalogueEvent,
   now: () => number,
 ): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -65,8 +68,8 @@ const postSignal = async (
   }
 
   const signal = await recordSignal({
-    shitposts: repository,
-    signals,
+    shitposts: ports.shitposts,
+    signals: ports.signals,
     request: parsed.data,
     signalledAt: new Date(now()).toISOString(),
   });
@@ -77,8 +80,7 @@ const postSignal = async (
 };
 
 const getFeed = async (
-  repository: ShitpostRepository,
-  profiles: TasteProfileReader,
+  ports: CataloguePorts,
   event: CatalogueEvent,
 ): Promise<APIGatewayProxyStructuredResultV2> => {
   const userId = event.queryStringParameters?.userId;
@@ -86,14 +88,18 @@ const getFeed = async (
     return json(400, { error: 'userId required' });
   }
   return json(200, {
-    feed: await rankFeed({ shitposts: repository, profiles, userId }),
+    feed: await rankFeed({
+      shitposts: ports.shitposts,
+      profiles: ports.profiles,
+      userId,
+    }),
   });
 };
 
 const dispatch = async (
-  repository: ShitpostRepository,
+  ports: CataloguePorts,
   event: CatalogueEvent,
-  options: { signals?: SignalRepository; profiles?: TasteProfileReader; now: () => number },
+  now: () => number,
 ): Promise<{
   response: APIGatewayProxyStructuredResultV2;
   errorName?: string;
@@ -101,18 +107,18 @@ const dispatch = async (
   try {
     const method = event.requestContext.http.method;
 
-    if (method === 'POST' && event.rawPath === '/signals' && options.signals) {
-      return {
-        response: await postSignal(repository, options.signals, event, options.now),
-      };
+    if (method === 'POST' && event.rawPath === '/signals') {
+      return { response: await postSignal(ports, event, now) };
     }
 
-    if (method === 'GET' && event.rawPath === '/feed' && options.profiles) {
-      return { response: await getFeed(repository, options.profiles, event) };
+    if (method === 'GET' && event.rawPath === '/feed') {
+      return { response: await getFeed(ports, event) };
     }
 
     if (method === 'GET') {
-      return { response: json(200, { shitposts: await listShitposts(repository) }) };
+      return {
+        response: json(200, { shitposts: await listShitposts(ports.shitposts) }),
+      };
     }
 
     if (method === 'POST') {
@@ -121,7 +127,9 @@ const dispatch = async (
         return { response: json(400, { error: 'invalid shitpost' }) };
       }
       return {
-        response: json(201, { shitpost: await addShitpost(repository, parsed.data) }),
+        response: json(201, {
+          shitpost: await addShitpost(ports.shitposts, parsed.data),
+        }),
       };
     }
 
@@ -136,8 +144,8 @@ const dispatch = async (
 };
 
 export const createShitpostsHandler = (
-  repository: ShitpostRepository,
-  options: HandlerOptions = {},
+  ports: CataloguePorts,
+  options: TelemetryOptions = {},
 ) => {
   const emit = options.emit ?? (() => undefined);
   const now = options.now ?? Date.now;
@@ -150,11 +158,7 @@ export const createShitpostsHandler = (
     const coldStart = nextRequestIsColdStart;
     nextRequestIsColdStart = false;
 
-    const { response, errorName } = await dispatch(repository, event, {
-      signals: options.signals,
-      profiles: options.profiles,
-      now,
-    });
+    const { response, errorName } = await dispatch(ports, event, now);
 
     emit({
       method: event.requestContext.http.method,
