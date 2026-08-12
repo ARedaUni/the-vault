@@ -51,7 +51,7 @@ describe('reddit feed saved-post source', () => {
       'https://www.reddit.com/user/ali/saved.rss': () => pages[calls++],
     });
 
-    const source = redditFeedSavedPostSource({ http, feedUrl });
+    const source = redditFeedSavedPostSource({ http, feedUrl: async () => feedUrl });
 
     expect(await source.fetchSaved()).toEqual([
       { redditId: 'page1', imageUrl: 'https://i.redd.it/page1.jpg' },
@@ -72,7 +72,7 @@ describe('reddit feed saved-post source', () => {
       'https://www.reddit.com/user/ali/saved.rss': () => samePage,
     });
 
-    const source = redditFeedSavedPostSource({ http, feedUrl });
+    const source = redditFeedSavedPostSource({ http, feedUrl: async () => feedUrl });
 
     expect(await source.fetchSaved()).toEqual([
       { redditId: 'only1', imageUrl: 'https://i.redd.it/only1.jpg' },

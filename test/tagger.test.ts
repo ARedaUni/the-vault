@@ -5,7 +5,7 @@ import { aShitpost, inMemoryRepository } from './support/catalogue';
 import {
   createStreamTagger,
   type StreamRecord,
-} from '../lambda/tagger/tag-inserted';
+} from '../lambda/tagger/triggers/stream';
 import { createBackfillTags } from '../lambda/tagger/usecases/backfill-tags';
 import {
   bedrockVisionTagger,

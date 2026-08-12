@@ -1,8 +1,9 @@
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import type { AttributeValue } from '@aws-sdk/client-dynamodb';
-import { signalSchema } from '../shared/domain/signal';
-import type { Signal } from '../shared/domain/signal';
-import type { TasteProfileRepository } from './domain/taste-profile-repository';
+import { signalSchema } from '../../shared/domain/signal';
+import type { Signal } from '../../shared/domain/signal';
+import { createRecordTaste } from '../usecases/record-taste';
+import type { ProfileBuilderPorts } from '../usecases/record-taste';
 
 export type StreamRecord = {
   eventName?: string;
@@ -20,14 +21,12 @@ const insertedSignals = (records: readonly StreamRecord[]): readonly Signal[] =>
     .filter(isSignalItem)
     .map((item) => signalSchema.parse(item));
 
-export const createProfileBuilder =
-  (profiles: TasteProfileRepository) =>
-  async (event: { Records: readonly StreamRecord[] }): Promise<void> => {
-    const increments = insertedSignals(event.Records).flatMap((signal) =>
-      signal.tags.map((tag) => ({ userId: signal.userId, tag })),
-    );
+export const createProfileBuilder = (ports: ProfileBuilderPorts) => {
+  const recordTaste = createRecordTaste(ports);
 
-    for (const increment of increments) {
-      await profiles.incrementTag(increment);
+  return async (event: { Records: readonly StreamRecord[] }): Promise<void> => {
+    for (const signal of insertedSignals(event.Records)) {
+      await recordTaste(signal);
     }
   };
+};

@@ -1,5 +1,5 @@
 import { gzipSync } from 'node:zlib';
-import { handler } from '../lambda/telescope/unwrap';
+import { handler } from '../lambda/telescope/handler';
 
 type LogEvent = { timestamp: number; message: string };
 

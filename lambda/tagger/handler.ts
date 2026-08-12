@@ -6,47 +6,32 @@ import { z } from 'zod';
 import { dynamoDbShitpostRepository } from '../shared/adapters/dynamodb-shitposts';
 import { bedrockVisionTagger } from './adapters/bedrock-vision';
 import { s3MediaStore } from './adapters/s3-media';
-import { createStreamTagger } from './tag-inserted';
-import type { StreamRecord } from './tag-inserted';
-import { createBackfillTags } from './usecases/backfill-tags';
-import type { BackfillSummary } from './usecases/backfill-tags';
+import { createTagger } from './triggers/invocation';
 
-const envSchema = z.object({
-  CATALOGUE_TABLE_NAME: z.string().min(1),
-  MEDIA_BUCKET_NAME: z.string().min(1),
-  VISION_MODEL_ID: z.string().min(1),
-});
-
-const env = envSchema.parse(process.env);
+const environment = z
+  .object({
+    CATALOGUE_TABLE_NAME: z.string().min(1),
+    MEDIA_BUCKET_NAME: z.string().min(1),
+    VISION_MODEL_ID: z.string().min(1),
+  })
+  .parse(process.env);
 
 const bedrock = new AnthropicBedrock({ maxRetries: 10 });
 
-const ports = {
-  shitposts: dynamoDbShitpostRepository({
-    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
-    tableName: env.CATALOGUE_TABLE_NAME,
-  }),
-  media: s3MediaStore({
-    client: new S3Client({}),
-    bucketName: env.MEDIA_BUCKET_NAME,
-  }),
-  vision: bedrockVisionTagger({
-    client: { messages: { create: (params) => bedrock.messages.create(params) } },
-    model: env.VISION_MODEL_ID,
-  }),
-};
-
-const backfillTags = createBackfillTags(ports);
-const tagInserted = createStreamTagger(ports);
-
-export const handler = async (
-  event?: { Records?: readonly StreamRecord[] },
-): Promise<BackfillSummary | void> => {
-  if (event?.Records !== undefined) {
-    return tagInserted({ Records: event.Records });
-  }
-
-  const summary = await backfillTags();
-  console.log(JSON.stringify(summary));
-  return summary;
-};
+export const handler = createTagger(
+  {
+    shitposts: dynamoDbShitpostRepository({
+      client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+      tableName: environment.CATALOGUE_TABLE_NAME,
+    }),
+    media: s3MediaStore({
+      client: new S3Client({}),
+      bucketName: environment.MEDIA_BUCKET_NAME,
+    }),
+    vision: bedrockVisionTagger({
+      client: { messages: { create: (params) => bedrock.messages.create(params) } },
+      model: environment.VISION_MODEL_ID,
+    }),
+  },
+  { report: (summary) => console.log(JSON.stringify(summary)) },
+);

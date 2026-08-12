@@ -2,8 +2,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
-import { createProfileBuilder } from '../lambda/profile-builder/build-profile';
-import type { StreamRecord } from '../lambda/profile-builder/build-profile';
+import { createProfileBuilder } from '../lambda/profile-builder/triggers/stream';
+import type { StreamRecord } from '../lambda/profile-builder/triggers/stream';
 import { dynamoDbTasteProfileRepository } from '../lambda/profile-builder/adapters/taste-profile';
 import type { TasteProfileRepository } from '../lambda/profile-builder/domain/taste-profile-repository';
 
@@ -38,7 +38,7 @@ const recordingProfileRepository = (): TasteProfileRepository & {
 
 test('an inserted signal bumps the tally once for each of its tags', async () => {
   const profiles = recordingProfileRepository();
-  const buildProfile = createProfileBuilder(profiles);
+  const buildProfile = createProfileBuilder({ profiles });
 
   await buildProfile({ Records: [aSignalRecord()] });
 
@@ -50,7 +50,7 @@ test('an inserted signal bumps the tally once for each of its tags', async () =>
 
 test('catalogue changes on the stream leave the profile untouched', async () => {
   const profiles = recordingProfileRepository();
-  const buildProfile = createProfileBuilder(profiles);
+  const buildProfile = createProfileBuilder({ profiles });
 
   await buildProfile({
     Records: [
@@ -65,7 +65,7 @@ test('catalogue changes on the stream leave the profile untouched', async () => 
 
 test('modified and removed signals do not change the tally again', async () => {
   const profiles = recordingProfileRepository();
-  const buildProfile = createProfileBuilder(profiles);
+  const buildProfile = createProfileBuilder({ profiles });
 
   await buildProfile({
     Records: [

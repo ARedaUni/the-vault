@@ -73,7 +73,7 @@ export class Telescope extends Construct {
 
     const unwrapFunction = new NodejsFunction(this, 'UnwrapFunction', {
       runtime: lambda.Runtime.NODEJS_24_X,
-      entry: 'lambda/telescope/unwrap.ts',
+      entry: 'lambda/telescope/handler.ts',
       handler: 'handler',
       timeout: cdk.Duration.minutes(1),
       logGroup: new logs.LogGroup(this, 'UnwrapFunctionLogs', {

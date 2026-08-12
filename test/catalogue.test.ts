@@ -4,7 +4,7 @@ import { mockClient } from 'aws-sdk-client-mock';
 import { dynamoDbShitpostRepository } from '../lambda/shared/adapters/dynamodb-shitposts';
 import { dynamoDbSignalRepository } from '../lambda/catalogue/adapters/signals';
 import { dynamoDbTasteProfileReader } from '../lambda/catalogue/adapters/taste-profiles';
-import type { CatalogueEvent } from '../lambda/catalogue/routes/shitposts';
+import type { CatalogueEvent } from '../lambda/catalogue/triggers/http';
 import type { Shitpost } from '../lambda/shared/domain/shitpost';
 import type { ShitpostRepository } from '../lambda/shared/domain/shitpost-repository';
 import { withRepositoryTelemetry } from '../lambda/catalogue/telemetry/repository-telemetry';

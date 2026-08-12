@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { dynamoDbShitpostRepository } from '../shared/adapters/dynamodb-shitposts';
 import { dynamoDbSignalRepository } from './adapters/signals';
 import { dynamoDbTasteProfileReader } from './adapters/taste-profiles';
-import { createShitpostsHandler } from './routes/shitposts';
+import { createShitpostsHandler } from './triggers/http';
 import { emfFormat } from './telemetry/emf';
 import { withRepositoryTelemetry } from './telemetry/repository-telemetry';
 

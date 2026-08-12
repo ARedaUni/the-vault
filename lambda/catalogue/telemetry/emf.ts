@@ -1,4 +1,4 @@
-import type { CanonicalRequestEvent } from '../routes/shitposts';
+import type { CanonicalRequestEvent } from '../triggers/http';
 
 export const emfFormat = (
   event: CanonicalRequestEvent,

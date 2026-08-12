@@ -23,16 +23,17 @@ const atomEntries = (xml: string) =>
 
 export const redditFeedSavedPostSource = (options: {
   http: HttpClient;
-  feedUrl: string;
+  feedUrl: () => Promise<string>;
 }): SavedPostSource => ({
   fetchSaved: async () => {
+    const feedUrl = await options.feedUrl();
     const posts = [];
     const seen = new Set<string>();
     let after: string | null = null;
     for (;;) {
       const cursor: string = after === null ? '' : `&after=${after}`;
       const response = await options.http(
-        `${options.feedUrl}&limit=100${cursor}`,
+        `${feedUrl}&limit=100${cursor}`,
         {
           headers: {
             'User-Agent':
