@@ -44,10 +44,11 @@
 | 6 | **The Algorithm** | Taste profile, DynamoDB Streams, For You feed | 150 | ✅ 2026-08-02 |
 | 7 | **The Tagger** | Bedrock Claude vision, auto-tagging, backfill over the untagged hoard | 150 | ✅ 2026-08-02 |
 | 8 | **The Harvester** | Reddit saved-posts client (hexagonal port/adapter), Secrets Manager, EventBridge Scheduler pipeline | 250 | ⚪ |
-| 9 | **The Viewing Room** | Real frontend: login UI, ❤️ buttons, For You tab | 200 | ⚪ |
+| 8.5 | **The Librarian** | Multimodal embeddings at ingest (stream + backfill), brute-force top-K, GET /search?q= | 150 | ⚪ |
+| 9 | **The Viewing Room** | Real frontend: login UI, ❤️ buttons, search bar, For You tab | 200 | ⚪ |
 | 🐉 | **Boss Fight** | Mock BBC interview — defend every choice | 200 | ⚪ |
 
-**Total: 2500 XP**
+**Total: 2650 XP**
 
 ## 🚢 Ship Log
 

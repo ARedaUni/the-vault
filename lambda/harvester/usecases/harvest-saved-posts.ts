@@ -18,7 +18,7 @@ export type HarvesterPorts = {
 
 const shitpostKeyFor = (post: SavedPost): string => {
   const extension = new URL(post.imageUrl).pathname.match(/\.[a-z]+$/i)?.[0] ?? '';
-  return `reddit/${post.redditId}${extension}`;
+  return `media/${post.source}/${post.externalId}${extension}`;
 };
 
 export const createHarvestSavedPosts = (options: HarvesterPorts) => {

@@ -54,7 +54,7 @@ export const redditFeedSavedPostSource = (options: {
       posts.push(
         ...fresh.flatMap((entry) =>
           entry.fullname.startsWith('t3_') && entry.imageUrl !== undefined
-            ? [{ redditId: entry.fullname.slice(3), imageUrl: entry.imageUrl }]
+            ? [{ source: 'reddit', externalId: entry.fullname.slice(3), imageUrl: entry.imageUrl }]
             : [],
         ),
       );

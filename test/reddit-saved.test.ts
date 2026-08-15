@@ -54,8 +54,8 @@ describe('reddit feed saved-post source', () => {
     const source = redditFeedSavedPostSource({ http, feedUrl: async () => feedUrl });
 
     expect(await source.fetchSaved()).toEqual([
-      { redditId: 'page1', imageUrl: 'https://i.redd.it/page1.jpg' },
-      { redditId: 'page2', imageUrl: 'https://i.redd.it/page2.png' },
+      { source: 'reddit', externalId: 'page1', imageUrl: 'https://i.redd.it/page1.jpg' },
+      { source: 'reddit', externalId: 'page2', imageUrl: 'https://i.redd.it/page2.png' },
     ]);
     expect(requests[0].url).toContain('feed=feed-token');
     expect(requests[0].url).toContain('limit=100');
@@ -75,7 +75,7 @@ describe('reddit feed saved-post source', () => {
     const source = redditFeedSavedPostSource({ http, feedUrl: async () => feedUrl });
 
     expect(await source.fetchSaved()).toEqual([
-      { redditId: 'only1', imageUrl: 'https://i.redd.it/only1.jpg' },
+      { source: 'reddit', externalId: 'only1', imageUrl: 'https://i.redd.it/only1.jpg' },
     ]);
     expect(requests.length).toBe(2);
   });

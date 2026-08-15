@@ -1,5 +1,6 @@
 export type SavedPost = {
-  redditId: string;
+  source: string;
+  externalId: string;
   imageUrl: string;
 };
 

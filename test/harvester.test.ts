@@ -13,7 +13,8 @@ import type { StoredImage } from '../lambda/shared/domain/media';
 import { aShitpost, inMemoryRepository } from './support/catalogue';
 
 const aSavedPost = (overrides: Partial<SavedPost> = {}): SavedPost => ({
-  redditId: 'abc123',
+  source: 'reddit',
+  externalId: 'abc123',
   imageUrl: 'https://i.redd.it/abc123.jpg',
   ...overrides,
 });
@@ -51,26 +52,46 @@ describe('harvest saved posts', () => {
     const summary = await harvest();
 
     expect(summary).toEqual({ harvested: 1, skipped: 0, failed: 0 });
-    expect(media.storedKeys()).toEqual(['reddit/abc123.jpg']);
+    expect(media.storedKeys()).toEqual(['media/reddit/abc123.jpg']);
     expect(await shitposts.findAll()).toEqual([
       {
-        shitpostKey: 'reddit/abc123.jpg',
+        shitpostKey: 'media/reddit/abc123.jpg',
         uploadedAt: '2026-08-04T09:00:00.000Z',
         tags: [],
       },
     ]);
   });
 
+  it('files posts from different sources under their own media prefix', async () => {
+    const shitposts = inMemoryRepository();
+    const media = inMemoryMediaUpload();
+    const harvest = createHarvestSavedPosts({
+      source: {
+        fetchSaved: async () => [
+          aSavedPost({ source: 'twitter', externalId: 'tw001', imageUrl: 'https://pbs.twimg.com/tw001.png' }),
+        ],
+      },
+      images: { download: async () => anImage() },
+      media,
+      shitposts,
+      now: fixedClock,
+    });
+
+    await harvest();
+
+    expect(media.storedKeys()).toEqual(['media/twitter/tw001.png']);
+  });
+
   it('skips posts whose derived key already exists in the catalogue', async () => {
     const shitposts = inMemoryRepository([
-      aShitpost({ shitpostKey: 'reddit/abc123.jpg', tags: ['spongebob'] }),
+      aShitpost({ shitpostKey: 'media/reddit/abc123.jpg', tags: ['spongebob'] }),
     ]);
     const media = inMemoryMediaUpload();
     const harvest = createHarvestSavedPosts({
       source: {
         fetchSaved: async () => [
           aSavedPost(),
-          aSavedPost({ redditId: 'zzz999', imageUrl: 'https://i.redd.it/zzz999.png' }),
+          aSavedPost({ externalId: 'zzz999', imageUrl: 'https://i.redd.it/zzz999.png' }),
         ],
       },
       images: { download: async () => anImage() },
@@ -82,9 +103,9 @@ describe('harvest saved posts', () => {
     const summary = await harvest();
 
     expect(summary).toEqual({ harvested: 1, skipped: 1, failed: 0 });
-    expect(media.storedKeys()).toEqual(['reddit/zzz999.png']);
+    expect(media.storedKeys()).toEqual(['media/reddit/zzz999.png']);
     expect(await shitposts.findAll()).toContainEqual(
-      aShitpost({ shitpostKey: 'reddit/abc123.jpg', tags: ['spongebob'] }),
+      aShitpost({ shitpostKey: 'media/reddit/abc123.jpg', tags: ['spongebob'] }),
     );
   });
 
@@ -94,8 +115,8 @@ describe('harvest saved posts', () => {
     const harvest = createHarvestSavedPosts({
       source: {
         fetchSaved: async () => [
-          aSavedPost({ redditId: 'dead01', imageUrl: 'https://i.redd.it/dead01.jpg' }),
-          aSavedPost({ redditId: 'alive2', imageUrl: 'https://i.redd.it/alive2.png' }),
+          aSavedPost({ externalId: 'dead01', imageUrl: 'https://i.redd.it/dead01.jpg' }),
+          aSavedPost({ externalId: 'alive2', imageUrl: 'https://i.redd.it/alive2.png' }),
         ],
       },
       images: {
@@ -112,7 +133,7 @@ describe('harvest saved posts', () => {
     const summary = await harvest();
 
     expect(summary).toEqual({ harvested: 1, skipped: 0, failed: 1 });
-    expect(media.storedKeys()).toEqual(['reddit/alive2.png']);
+    expect(media.storedKeys()).toEqual(['media/reddit/alive2.png']);
   });
 });
 
