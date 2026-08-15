@@ -114,7 +114,7 @@ export class SignalStack extends cdk.Stack {
     });
 
     new s3deploy.BucketDeployment(this, 'GalleryPageDeployment', {
-      sources: [s3deploy.Source.asset('./frontend')],
+      sources: [s3deploy.Source.asset('./frontend/legacy')],
       destinationBucket: galleryShell,
       distribution: gallery,
       distributionPaths: ['/index.html'],

@@ -54,6 +54,23 @@
 
 *(newest first — every session gets a line, even the scrappy ones)*
 
+- **2026-08-15 (session 11) — Quest 9 part 1: the Viewing Room gets real
+  bones. ⚛️** `frontend/` is now a Vite + React + TS app with gallery parity
+  (grid, count, video tiles); the old single-file gallery is quarantined at
+  `frontend/legacy/` and is still exactly what `BucketDeployment` ships — the
+  live site cannot change until we deliberately repoint to `frontend/dist`.
+  Testing doctrine overhauled mid-session on Ali's call: RTL/jsdom with
+  stubbed fetch deleted, replaced by **outside-in Playwright with zero
+  mocks** — real Chromium, real dev server, `/api` + `/media` dev proxies
+  (CORS is a browser rule; server-to-server forwarding never trips it),
+  and a `page.route` interceptor at the network boundary that forwards
+  real traffic and asserts real CloudFront 200s. Learned the hard way:
+  `networkidle` never comes on a 91-item gallery with a fat gif — poll for
+  first interceptions, retire the checkpoint with `unrouteAll`. Also
+  caught: `Source.asset('./frontend')` would have shipped node_modules to
+  the public bucket. Note: Quest 8 build sessions went unlogged; harvester
+  XP still unbanked pending checkpoint. Next: DELETE endpoint driven
+  outside-in by the delete-button acceptance test, then Quest 8.5 search.
 - **2026-08-02 (session 10) — Quest 7 COMPLETE: 🟡 pass on in-session
   evidence (+150 XP → 1850/2500). 🏷️** The Tagger lives: 91/91 shitposts
   auto-tagged by Claude Haiku 4.5 on Bedrock for ~15p. Hexagonal core
