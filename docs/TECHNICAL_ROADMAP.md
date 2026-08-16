@@ -443,6 +443,27 @@ builds you a feed.
 
 ---
 
+## Campaign extension — the Viewing Room requirements (stated 2026-08-15)
+
+Ali's requirements for the frontend upgrade, verbatim intent:
+
+1. **Remove one's shitposts** — a delete control on every tile. Backend gap:
+   no `DELETE` route exists; it gets driven outside-in by the delete-button
+   acceptance test (new route → usecase → repository delete; decide whether
+   the S3 object dies too or only the catalogue entry).
+2. **A feed** — surface `GET /feed?userId=` (already live, taste-ranked) as
+   a "For You" tab alongside the everything-grid.
+3. **A search bar that finds top-K what you're looking for in 10 seconds** —
+   the acceptance bar for Quest 8.5. Needs multimodal embeddings at ingest
+   plus `GET /search?q=` (brute-force top-K is fine at this scale); the
+   frontend part is just an input box wired to it.
+
+Non-functional: **ease of use above all** — Vite + React + TS, `npm run dev`
+hot reload, dev proxies to real AWS (no local stubs). Testing doctrine:
+outside-in TDD, Playwright outer loop, zero mocks (see PROGRESS.md
+session 11). Delivery order agreed: delete slice → Quest 8 checkpoint →
+Quest 8.5 search backend → search bar + feed tab.
+
 ## Cross-cutting threads (every quest)
 
 - **TDD throughout:** domain via in-memory fakes (fast, no AWS), adapters via
