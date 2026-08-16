@@ -1,5 +1,5 @@
-import { Tile } from './components/Tile'
-import { useCatalogue } from './hooks/use-catalogue'
+import { useCatalogue } from '@/hooks/use-catalogue'
+import { Tile } from '../components/Tile'
 
 const countLabel = (total: number): string =>
   `${total} ${total === 1 ? 'shitpost' : 'shitposts'}`

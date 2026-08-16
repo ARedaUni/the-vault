@@ -10,9 +10,10 @@ const inGrid: Decorator = (Story) => (
 )
 
 const meta = {
-  title: 'Tile',
+  title: 'Vault/Tile',
   component: Tile,
   decorators: [inGrid],
+  tags: ['dev-only'],
 } satisfies Meta<typeof Tile>
 
 export default meta
