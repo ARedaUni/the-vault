@@ -3,8 +3,15 @@ import { defineConfig, devices } from '@playwright/test'
 const isCI = Boolean(process.env.CI)
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:5173'
 
+/**
+ * The app suite: hermetic, and the only Playwright run in CI.
+ *
+ * Every request is answered by the catalogue fake, so a red build means this
+ * frontend is broken — never that AWS was slow or redeployed. The live contract
+ * check lives in playwright.contract.config.ts and runs on demand.
+ */
 export default defineConfig({
-  testDir: './e2e',
+  testDir: './e2e/app',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,

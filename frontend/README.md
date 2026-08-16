@@ -1,15 +1,19 @@
 # The Vault — Signal's viewing room
 
-Vite + React + TypeScript. `npm run dev` proxies straight to real AWS; there
-are no local stubs and no mock server.
+Vite + React + TypeScript. `npm run dev` proxies straight to real AWS. The
+tests do not: the app suite is hermetic, and only the contract suite leaves the
+machine.
 
 ```bash
 cp .env.example .env  # once, after cloning
 
-npm run dev        # http://localhost:5173, hot reload, proxied to real AWS
-npm run verify     # lint + typecheck + the whole Playwright suite
-npm run test:smoke # the fast subset
-npm run test:ui    # Playwright's watch-mode UI
+npm run dev           # http://localhost:5173, hot reload, proxied to real AWS
+npm run verify        # lint + typecheck + unit + stories + hermetic e2e
+npm run test:smoke    # the fast subset
+npm run test:ui       # Playwright's watch-mode UI
+
+npm run test:contract # the ONLY suite that talks to AWS. Not in CI.
+npm run fixture:capture  # refresh the captured catalogue from the live API
 ```
 
 ## Layout
@@ -19,19 +23,30 @@ src/
 ├── api/
 │   ├── catalogue.contract.ts   the wire format, and the only place it is stated
 │   └── catalogue.ts            fetch + media URL construction
-├── components/Tile.tsx
 ├── domain/media-kind.ts        image vs video, by extension
+├── features/vault/             UI, sliced by feature
+│   ├── components/Tile.tsx
+│   └── layout/App.tsx
 ├── hooks/use-catalogue.ts      loading | ready | failed state machine
 ├── config.ts                   zod-parsed environment
-└── App.tsx
+└── main.tsx
 
 e2e/
-├── support/
-│   ├── test-options.ts         fixtures — the only import specs use
-│   ├── vault.page.ts           locators and actions
-│   └── catalogue.client.ts     typed API calls
-└── vault.spec.ts               everything about the gallery
+├── app/vault.spec.ts           the gallery. Hermetic.
+├── contract/catalogue.spec.ts  the deployed API. Live.
+├── fixtures/catalogue.json     captured from production, never hand-written
+└── support/
+    ├── test-options.ts         app fixtures — installs the fake automatically
+    ├── contract-options.ts     contract fixtures — no stubs, real HTTP
+    ├── catalogue.fake.ts       the catalogue port, faked at the HTTP boundary
+    ├── catalogue.client.ts     typed API calls, contract suite only
+    └── vault.page.ts           locators and actions
 ```
+
+UI lives under `features/<domain>/` with `components/` for single-purpose
+elements, `patterns/` for compositions spanning several, and `layout/` for page
+containers. Imports crossing out of a feature use the `@/` alias; inside one
+they stay relative, so the folder tells you where the seam is.
 
 One spec file per user-facing feature, with `describe` blocks inside for the
 different concerns. When the delete control, feed tab and search bar land they
@@ -61,10 +76,37 @@ mobile.
 `@smoke` (the critical path), `@api` (contract), `@regression` (everything
 else).
 
-**No mocks.** Tests talk to the deployed API and to CloudFront. The single
-exception is the `failure states` block, which injects network faults with
-`page.route` because a 503, an empty catalogue and a malformed payload are
-unreachable against a healthy production API. Everything else observes.
+## Why the app suite is hermetic
+
+A test that talks to real AWS answers two questions at once — "is my code
+correct?" and "is production healthy?" — and gives you one bit to tell them
+apart. When it goes red you cannot know which broke, so eventually you stop
+looking. The suites are split so each answers exactly one question.
+
+**`e2e/app/` — is this frontend correct?** Every request is answered by
+`catalogue.fake.ts`. It is a hand-written fake, not a mock: it implements the
+catalogue's HTTP contract, and for an app under test in a real browser HTTP
+*is* the port — there is no module graph to inject into, so `page.route` is
+where the fake plugs in. A catch-all route aborts anything addressed outside
+the dev server, which is what makes "hermetic" a property rather than a hope.
+Media is served too, and any key the catalogue does not hold gets a 404, so a
+broken `mediaUrlFor` surfaces as a missing image instead of passing because a
+blanket stub answered everything.
+
+**`e2e/contract/` — has the deployed API moved?** The one question a fake can
+never answer, so these specs talk to real AWS on purpose and stay out of CI. A
+build must not go red because CloudFront hiccupped.
+
+**The fixture is captured, never invented.** `npm run fixture:capture` writes a
+verbatim contiguous slice of a real response; the app suite re-parses it
+through the *strict* schema on every run, so a fixture that has drifted fails
+at load rather than propping up tests that prove nothing. An invented fixture
+passes its own tests forever while diverging from what AWS actually sends —
+the same failure that once cost us every wide event in production.
+
+The honest limit: hermetic tests can only be as truthful as the fixture. That
+is what `test:contract` is for, and why it must be run after a deploy rather
+than admired.
 
 ## The API contract
 
@@ -73,8 +115,9 @@ derives two schemas from it:
 
 - **`shitpostsResponseSchema`** — tolerant, used by the app. Unknown keys are
   stripped, so the backend adding a field cannot break the browser.
-- **`exactShitpostsResponseSchema`** — strict, used only by the contract test.
-  An added, renamed or retyped field fails a test instead of degrading quietly.
+- **`exactShitpostsResponseSchema`** — strict, used by the contract suite and by
+  the fixture loader. An added, renamed or retyped field fails a test instead of
+  degrading quietly.
 
 It deliberately does **not** import from `lambda/shared/domain`. That is the
 backend's internal model — the inside of its hexagon — and the frontend depends

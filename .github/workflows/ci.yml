@@ -20,3 +20,44 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npx cdk synth --quiet
+
+  # The root job above is Jest over test/ — it cannot see frontend/ at all
+  # (wrong roots, wrong *.test.ts pattern, and npm ci never installs
+  # frontend/node_modules). This job is the frontend's only gate.
+  frontend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+
+      # config.ts parses import.meta.env at boot, so the app needs a .env to
+      # start at all. Only the VITE_* base paths are actually exercised: the
+      # suite is hermetic, so the AWS proxy origins in here are never called.
+      # Nothing secret, and no network dependency implied.
+      - run: cp .env.example .env
+
+      # Covers both Playwright projects: Pixel 7 is Chromium wearing a phone.
+      # --with-deps pulls the system libraries the runner lacks.
+      - run: npx playwright install --with-deps chromium
+
+      # lint -> typecheck -> unit (node) -> stories (real Chromium) -> e2e.
+      # Playwright starts the dev server itself; CI=true is set by Actions, so
+      # it runs single-worker with retries and refuses any stray test.only.
+      - run: npm run verify
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
