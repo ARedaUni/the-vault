@@ -28,6 +28,10 @@ test-results/
 playwright-report/
 blob-report/
 
+# storybook
+storybook-static/
+*.storybook.log
+
 # env — copy .env.example to .env to get started
 .env
 .env.local
