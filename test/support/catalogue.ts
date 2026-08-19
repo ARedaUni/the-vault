@@ -3,6 +3,7 @@ import {
   DynamoDBDocumentClient,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { dynamoDbShitpostRepository } from '../../lambda/shared/adapters/dynamodb-shitposts';
@@ -45,14 +46,36 @@ export const inMemoryRepository = (
   let stored: readonly Shitpost[] = [...seed];
   return {
     findAll: async () => stored,
+    findLive: async () => stored.filter((s) => s.deletedAt === undefined),
     save: async (shitpost) => {
       stored = [
         ...stored.filter((s) => s.shitpostKey !== shitpost.shitpostKey),
         shitpost,
       ];
     },
+    markDeleted: async (shitpostKey, deletedAt) => {
+      stored = stored.map((s) =>
+        s.shitpostKey === shitpostKey ? { ...s, deletedAt } : s,
+      );
+    },
   };
 };
+
+/** Every port method rejects — for proving the handler's failure behaviour. */
+export const alwaysFailingRepository = (error: Error): ShitpostRepository => ({
+  findAll: async () => {
+    throw error;
+  },
+  findLive: async () => {
+    throw error;
+  },
+  save: async () => {
+    throw error;
+  },
+  markDeleted: async () => {
+    throw error;
+  },
+});
 
 export const inMemorySignalRepository = (
   seed: readonly Signal[] = [],
@@ -87,11 +110,20 @@ export const aCatalogueHandler = (
     options,
   );
 
-const toRow = (shitpost: Shitpost) => ({
+type Row = {
+  PK: string;
+  SK: string;
+  uploadedAt: string;
+  tags: readonly string[];
+  deletedAt?: string;
+};
+
+const toRow = (shitpost: Shitpost): Row => ({
   PK: 'SHITPOST',
   SK: shitpost.shitpostKey,
   uploadedAt: shitpost.uploadedAt,
   tags: shitpost.tags,
+  ...(shitpost.deletedAt === undefined ? {} : { deletedAt: shitpost.deletedAt }),
 });
 
 export const dynamoDbBackedRepository = (
@@ -106,6 +138,15 @@ export const dynamoDbBackedRepository = (
     .on(PutCommand, { TableName: 'TestCatalogue' })
     .callsFake((input) => {
       rows.push(input.Item);
+      return {};
+    });
+  dynamoDb
+    .on(UpdateCommand, { TableName: 'TestCatalogue' })
+    .callsFake((input) => {
+      const row = rows.find((candidate) => candidate.SK === input.Key.SK);
+      if (row) {
+        row.deletedAt = input.ExpressionAttributeValues[':deletedAt'];
+      }
       return {};
     });
   return dynamoDbShitpostRepository({

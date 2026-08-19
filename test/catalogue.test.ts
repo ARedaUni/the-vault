@@ -13,6 +13,7 @@ import {
   aCanonicalEvent,
   aCatalogueHandler,
   aShitpost,
+  alwaysFailingRepository,
   dynamoDbBackedRepository,
   inMemoryRepository,
   inMemorySignalRepository,
@@ -60,6 +61,43 @@ const shitpostRepositoryContract = (
       await expect(repository.findAll()).resolves.toEqual([fresh]);
     });
 
+    test('findLive omits a shitpost that has been deleted', async () => {
+      const repository = makeRepository([
+        aShitpost({ shitpostKey: 'media/keeper.png' }),
+        aShitpost({ shitpostKey: 'media/regret.png' }),
+      ]);
+
+      await repository.markDeleted('media/regret.png', '2026-08-18T09:00:00Z');
+
+      const live = await repository.findLive();
+      expect(live.map((shitpost) => shitpost.shitpostKey)).toEqual([
+        'media/keeper.png',
+      ]);
+    });
+
+    test('findAll still returns a deleted shitpost, so it is never re-harvested', async () => {
+      const repository = makeRepository([aShitpost({ shitpostKey: 'media/regret.png' })]);
+
+      await repository.markDeleted('media/regret.png', '2026-08-18T09:00:00Z');
+
+      await expect(repository.findAll()).resolves.toEqual([
+        expect.objectContaining({
+          shitpostKey: 'media/regret.png',
+          deletedAt: '2026-08-18T09:00:00Z',
+        }),
+      ]);
+    });
+
+    test('save keeps a shitpost deleted when only its tags change', async () => {
+      const repository = makeRepository([aShitpost({ shitpostKey: 'media/regret.png' })]);
+      await repository.markDeleted('media/regret.png', '2026-08-18T09:00:00Z');
+      const [deleted] = await repository.findAll();
+
+      await repository.save({ ...deleted!, tags: ['freshly', 'tagged'] });
+
+      await expect(repository.findLive()).resolves.toEqual([]);
+    });
+
     test('a shitpost keeps its tags from save to findAll', async () => {
       const repository = makeRepository([]);
       const tagged = aShitpost({
@@ -96,15 +134,7 @@ test('the instrumented repository measures time spent in the port and items retu
 
 test('a repository failure still records the time spent failing', async () => {
   const denied = new Error('AccessDeniedException');
-  const failingRepository: ShitpostRepository = {
-    findAll: async () => {
-      throw denied;
-    },
-    save: async () => {
-      throw denied;
-    },
-  };
-  const { repository, drain } = withRepositoryTelemetry(failingRepository, {
+  const { repository, drain } = withRepositoryTelemetry(alwaysFailingRepository(denied), {
     now: tickingClock(40),
   });
 
@@ -274,6 +304,21 @@ test('GET /shitposts responds 200 with the hoard as JSON, newest first', async (
   expect(response.headers?.['Content-Type']).toBe('application/json');
   expect(JSON.parse(response.body ?? '')).toEqual({
     shitposts: [newest, oldest],
+  });
+});
+
+test('GET /shitposts does not serve a deleted shitpost', async () => {
+  const repository = inMemoryRepository([
+    aShitpost({ shitpostKey: 'media/keeper.png' }),
+    aShitpost({ shitpostKey: 'media/regret.png' }),
+  ]);
+  await repository.markDeleted('media/regret.png', '2026-08-19T09:00:00Z');
+  const handler = aCatalogueHandler({ shitposts: repository });
+
+  const response = await handler(aRequest());
+
+  expect(JSON.parse(response.body ?? '')).toEqual({
+    shitposts: [expect.objectContaining({ shitpostKey: 'media/keeper.png' })],
   });
 });
 
@@ -507,14 +552,7 @@ test('only the first request on a container counts as a cold start', async () =>
 test('a repository failure still emits the canonical event, naming the error class', async () => {
   const failure = new Error('ConnectionTimeout: 10.0.4.2:8000');
   failure.name = 'ConnectionTimeout';
-  const brokenRepository: ShitpostRepository = {
-    findAll: async () => {
-      throw failure;
-    },
-    save: async () => {
-      throw failure;
-    },
-  };
+  const brokenRepository = alwaysFailingRepository(failure);
   const events: Record<string, unknown>[] = [];
   const handler = aCatalogueHandler(
     { shitposts: brokenRepository },
@@ -529,15 +567,11 @@ test('a repository failure still emits the canonical event, naming the error cla
 });
 
 test('GET /shitposts responds 500 without leaking internals when the catalogue is unreachable', async () => {
-  const brokenRepository: ShitpostRepository = {
-    findAll: async () => {
-      throw new Error('ConnectionTimeout: 10.0.4.2:8000 credentials=AKIA...');
-    },
-    save: async () => {
-      throw new Error('unreachable');
-    },
-  };
-  const handler = aCatalogueHandler({ shitposts: brokenRepository });
+  const handler = aCatalogueHandler({
+    shitposts: alwaysFailingRepository(
+      new Error('ConnectionTimeout: 10.0.4.2:8000 credentials=AKIA...'),
+    ),
+  });
 
   const response = await handler(aRequest());
 

@@ -464,6 +464,68 @@ outside-in TDD, Playwright outer loop, zero mocks (see PROGRESS.md
 session 11). Delivery order agreed: delete slice → Quest 8 checkpoint →
 Quest 8.5 search backend → search bar + feed tab.
 
+## The delete slice — design notes (2026-08-19)
+
+Decisions taken while TDD-ing the first half of requirement 1 above.
+
+- **Soft delete, not hard.** Deleting sets `deletedAt` on the row. The reason
+  is the Harvester: it builds its "already have this" set from
+  `shitposts.findAll()`, so a hard-deleted post looks *new* on the next
+  scheduled run and gets re-downloaded. The tombstone is what makes deletion
+  stick.
+- **The port grew `findLive` alongside `findAll`.** `findAll` stays the honest
+  read (tombstones included — the Harvester needs them); everything
+  user-facing reads `findLive`. Deliberately *not* a domain-level
+  `live(shitposts)` filter, which would be cheaper today (one function vs.
+  three implementations), because pagination makes the two reads genuinely
+  different work at the boundary — see below.
+- **Pagination will force a sparse GSI, and that is what justifies the port
+  split.** Three problems compound: (a) `Limit` is applied *before*
+  `FilterExpression`, so filtered pages come back short and an empty page does
+  not mean the end of the data; (b) `listShitposts` sorts by `uploadedAt` in
+  Lambda memory while the table's SK is `shitpostKey`, and you cannot paginate
+  a sort you compute after reading; (c) `findAll` sends a single `QueryCommand`
+  and ignores `LastEvaluatedKey` — **an existing defect**: past 1MB of rows the
+  Harvester's key set is silently incomplete and it re-harvests. The fix for
+  all three is an index keyed `GSI1PK='LIVE'`, `GSI1SK=uploadedAt`, kept
+  *sparse* — `markDeleted` does `SET deletedAt REMOVE GSI1PK`, so the item
+  falls out of the index atomically and `findLive` needs no filter at all.
+- **`toItem` must carry `deletedAt`.** Caught by the repository contract test,
+  which passed against the in-memory fake and failed against the DynamoDB
+  adapter: dropping the field meant the Tagger writing tags back would
+  resurrect a deleted post. The contract test earning its keep.
+- **Signals of a deleted post stay.** Taste profiles already folded them in and
+  we do not unwind them — you did like the post. `/feed` therefore keeps
+  ranking on taste derived from posts no longer in the catalogue. Revisit if
+  it ever feels wrong.
+
+Still open before the slice ships: CORS `allowMethods` is `[GET, POST]`, so a
+browser `DELETE` dies at preflight; `DELETE` needs the Cognito authorizer but
+the frontend has no login yet (so the UI half waits on auth); and shitpost keys
+contain slashes, which makes the path-parameter shape a real choice.
+
+### Observability, clarified
+
+- **Telescope carries ops telemetry only** — one wide event per HTTP request.
+  Its ten Glue columns are all request plumbing. Business data (signals, taste)
+  is *not* in the lake; that is the still-unbuilt "batch analytics bridge" in
+  Quest 6. Same pattern, different data, different table — easy to conflate
+  because both end in Parquet-on-S3 queried by Athena.
+- **`repository-telemetry.ts` is not hand-rolled APM and should not be replaced
+  by X-Ray/ADOT.** `repositoryDurationMs` and `itemCount` are two of the
+  Telescope table's columns — the decorator exists to *enrich the wide event*.
+  Swapping it for auto-instrumentation would NULL two columns.
+- **Honeycomb stays on the plan as Stage 3, additive.** Three subscribers to
+  one wide event: CloudWatch pages, Honeycomb investigates, Athena archives.
+  It also relieves the main constraint on widening the event — the Glue schema
+  is fixed at ten columns, so a delete event has nowhere to put `shitpostKey`
+  or who deleted it, whereas Honeycomb takes new fields with no deploy.
+- **Telescope gaps worth a future quest:** no partitioning at all (static S3
+  prefix, no `partitionKeys` — every Athena query full-scans); schema evolution
+  needs Iceberg or a `map<string,string>` context column; and `statuscode` is
+  typed `string` in Glue while the emitter sends a number — worth a
+  `SELECT statuscode, count(*) ... GROUP BY 1` to check it is not all NULL.
+
 ## Cross-cutting threads (every quest)
 
 - **TDD throughout:** domain via in-memory fakes (fast, no AWS), adapters via

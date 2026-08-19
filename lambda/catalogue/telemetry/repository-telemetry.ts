@@ -35,10 +35,28 @@ export const withRepositoryTelemetry = (
           record({ durationMs: now() - startedAt });
         }
       },
+      findLive: async () => {
+        const startedAt = now();
+        try {
+          const found = await inner.findLive();
+          record({ itemCount: found.length });
+          return found;
+        } finally {
+          record({ durationMs: now() - startedAt });
+        }
+      },
       save: async (shitpost) => {
         const startedAt = now();
         try {
           await inner.save(shitpost);
+        } finally {
+          record({ durationMs: now() - startedAt });
+        }
+      },
+      markDeleted: async (shitpostKey, deletedAt) => {
+        const startedAt = now();
+        try {
+          await inner.markDeleted(shitpostKey, deletedAt);
         } finally {
           record({ durationMs: now() - startedAt });
         }
