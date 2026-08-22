@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient,
+  GetCommand,
   PutCommand,
   QueryCommand,
   UpdateCommand,
@@ -47,6 +48,8 @@ export const inMemoryRepository = (
   return {
     findAll: async () => stored,
     findLive: async () => stored.filter((s) => s.deletedAt === undefined),
+    getByKey: async (shitpostKey) =>
+      stored.find((s) => s.shitpostKey === shitpostKey),
     save: async (shitpost) => {
       stored = [
         ...stored.filter((s) => s.shitpostKey !== shitpost.shitpostKey),
@@ -67,6 +70,9 @@ export const alwaysFailingRepository = (error: Error): ShitpostRepository => ({
     throw error;
   },
   findLive: async () => {
+    throw error;
+  },
+  getByKey: async () => {
     throw error;
   },
   save: async () => {
@@ -134,6 +140,11 @@ export const dynamoDbBackedRepository = (
   dynamoDb
     .on(QueryCommand, { TableName: 'TestCatalogue' })
     .callsFake(() => ({ Items: [...rows] }));
+  dynamoDb
+    .on(GetCommand, { TableName: 'TestCatalogue' })
+    .callsFake((input) => ({
+      Item: rows.find((candidate) => candidate.SK === input.Key.SK),
+    }));
   dynamoDb
     .on(PutCommand, { TableName: 'TestCatalogue' })
     .callsFake((input) => {

@@ -8,6 +8,11 @@ import type { Shitpost } from './shitpost';
 export interface ShitpostRepository {
   findAll(): Promise<readonly Shitpost[]>;
   findLive(): Promise<readonly Shitpost[]>;
+  /**
+   * Tombstone-inclusive like `findAll`: a signal on a deleted shitpost must
+   * still resolve, or deleting a meme would make old signals look bogus.
+   */
+  getByKey(shitpostKey: string): Promise<Shitpost | undefined>;
   save(shitpost: Shitpost): Promise<void>;
   markDeleted(shitpostKey: string, deletedAt: string): Promise<void>;
 }

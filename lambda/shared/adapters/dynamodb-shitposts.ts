@@ -1,5 +1,6 @@
 import {
   DynamoDBDocumentClient,
+  GetCommand,
   PutCommand,
   QueryCommand,
   UpdateCommand,
@@ -56,6 +57,17 @@ export const dynamoDbShitpostRepository = (options: {
     return (result.Items ?? [])
       .map(toShitpost)
       .filter((shitpost) => shitpost.deletedAt === undefined);
+  },
+
+  getByKey: async (shitpostKey) => {
+    const result = await options.client.send(
+      new GetCommand({
+        TableName: options.tableName,
+        Key: { PK: SHITPOST_PARTITION, SK: shitpostKey },
+      }),
+    );
+
+    return result.Item === undefined ? undefined : toShitpost(result.Item);
   },
 
   markDeleted: async (shitpostKey, deletedAt) => {

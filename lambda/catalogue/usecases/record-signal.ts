@@ -8,10 +8,7 @@ export const recordSignal = async (options: {
   request: SignalRequest;
   signalledAt: string;
 }): Promise<Signal | undefined> => {
-  const shitposts = await options.shitposts.findAll();
-  const shitpost = shitposts.find(
-    (candidate) => candidate.shitpostKey === options.request.shitpostKey,
-  );
+  const shitpost = await options.shitposts.getByKey(options.request.shitpostKey);
   if (!shitpost) {
     return undefined;
   }

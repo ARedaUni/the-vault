@@ -98,6 +98,33 @@ const shitpostRepositoryContract = (
       await expect(repository.findLive()).resolves.toEqual([]);
     });
 
+    test('getByKey returns the one shitpost addressed by its key', async () => {
+      const repository = makeRepository([
+        aShitpost({ shitpostKey: 'media/one.png' }),
+        aShitpost({ shitpostKey: 'media/two.mp4', tags: ['wanted'] }),
+      ]);
+
+      await expect(repository.getByKey('media/two.mp4')).resolves.toEqual(
+        expect.objectContaining({ shitpostKey: 'media/two.mp4', tags: ['wanted'] }),
+      );
+    });
+
+    test('getByKey returns undefined for a key that was never stored', async () => {
+      const repository = makeRepository([aShitpost({ shitpostKey: 'media/one.png' })]);
+
+      await expect(repository.getByKey('media/never.png')).resolves.toBeUndefined();
+    });
+
+    test('getByKey still returns a deleted shitpost, so a signal on it is not resurrected as new', async () => {
+      const repository = makeRepository([aShitpost({ shitpostKey: 'media/regret.png' })]);
+
+      await repository.markDeleted('media/regret.png', '2026-08-18T09:00:00Z');
+
+      await expect(repository.getByKey('media/regret.png')).resolves.toEqual(
+        expect.objectContaining({ deletedAt: '2026-08-18T09:00:00Z' }),
+      );
+    });
+
     test('a shitpost keeps its tags from save to findAll', async () => {
       const repository = makeRepository([]);
       const tagged = aShitpost({

@@ -45,6 +45,16 @@ export const withRepositoryTelemetry = (
           record({ durationMs: now() - startedAt });
         }
       },
+      getByKey: async (shitpostKey) => {
+        const startedAt = now();
+        try {
+          const found = await inner.getByKey(shitpostKey);
+          record({ itemCount: found === undefined ? 0 : 1 });
+          return found;
+        } finally {
+          record({ durationMs: now() - startedAt });
+        }
+      },
       save: async (shitpost) => {
         const startedAt = now();
         try {
