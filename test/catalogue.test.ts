@@ -1,5 +1,10 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { dynamoDbShitpostRepository } from '../lambda/shared/adapters/dynamodb-shitpost-repository';
 import { dynamoDbSignalRepository } from '../lambda/catalogue/adapters/dynamodb-signal-repository';
@@ -61,20 +66,6 @@ const shitpostRepositoryContract = (
       await expect(repository.findAll()).resolves.toEqual([fresh]);
     });
 
-    test('findLive omits a shitpost that has been deleted', async () => {
-      const repository = makeRepository([
-        aShitpost({ shitpostKey: 'media/keeper.png' }),
-        aShitpost({ shitpostKey: 'media/regret.png' }),
-      ]);
-
-      await repository.markDeleted('media/regret.png', '2026-08-18T09:00:00Z');
-
-      const live = await repository.findLive();
-      expect(live.map((shitpost) => shitpost.shitpostKey)).toEqual([
-        'media/keeper.png',
-      ]);
-    });
-
     test('findAll still returns a deleted shitpost, so it is never re-harvested', async () => {
       const repository = makeRepository([aShitpost({ shitpostKey: 'media/regret.png' })]);
 
@@ -95,7 +86,8 @@ const shitpostRepositoryContract = (
 
       await repository.save({ ...deleted!, tags: ['freshly', 'tagged'] });
 
-      await expect(repository.findLive()).resolves.toEqual([]);
+      const page = await repository.findLivePage({ limit: 20 });
+      expect(page.shitposts).toEqual([]);
     });
 
     test('getByKey returns the one shitpost addressed by its key', async () => {
@@ -123,6 +115,65 @@ const shitpostRepositoryContract = (
       await expect(repository.getByKey('media/regret.png')).resolves.toEqual(
         expect.objectContaining({ deletedAt: '2026-08-18T09:00:00Z' }),
       );
+    });
+
+    test('findLivePage returns a page no larger than the limit, newest first', async () => {
+      const repository = makeRepository([
+        aShitpost({ shitpostKey: 'media/oldest.png', uploadedAt: '2026-01-01T00:00:00Z' }),
+        aShitpost({ shitpostKey: 'media/middle.png', uploadedAt: '2026-02-01T00:00:00Z' }),
+        aShitpost({ shitpostKey: 'media/newest.png', uploadedAt: '2026-03-01T00:00:00Z' }),
+      ]);
+
+      const page = await repository.findLivePage({ limit: 2 });
+
+      expect(page.shitposts.map((shitpost) => shitpost.shitpostKey)).toEqual([
+        'media/newest.png',
+        'media/middle.png',
+      ]);
+    });
+
+    test('the cursor resumes at the shitpost the previous page stopped on', async () => {
+      const repository = makeRepository([
+        aShitpost({ shitpostKey: 'media/oldest.png', uploadedAt: '2026-01-01T00:00:00Z' }),
+        aShitpost({ shitpostKey: 'media/middle.png', uploadedAt: '2026-02-01T00:00:00Z' }),
+        aShitpost({ shitpostKey: 'media/newest.png', uploadedAt: '2026-03-01T00:00:00Z' }),
+      ]);
+
+      const first = await repository.findLivePage({ limit: 2 });
+      const second = await repository.findLivePage({
+        limit: 2,
+        cursor: first.nextCursor,
+      });
+
+      expect(second.shitposts.map((shitpost) => shitpost.shitpostKey)).toEqual([
+        'media/oldest.png',
+      ]);
+    });
+
+    test('the last page offers no cursor, so the gallery knows to stop asking', async () => {
+      const repository = makeRepository([
+        aShitpost({ shitpostKey: 'media/one.png', uploadedAt: '2026-01-01T00:00:00Z' }),
+        aShitpost({ shitpostKey: 'media/two.png', uploadedAt: '2026-02-01T00:00:00Z' }),
+      ]);
+
+      const only = await repository.findLivePage({ limit: 20 });
+
+      expect(only.shitposts).toHaveLength(2);
+      expect(only.nextCursor).toBeUndefined();
+    });
+
+    test('findLivePage omits a deleted shitpost, so a page of live memes stays full', async () => {
+      const repository = makeRepository([
+        aShitpost({ shitpostKey: 'media/keeper.png', uploadedAt: '2026-01-01T00:00:00Z' }),
+        aShitpost({ shitpostKey: 'media/regret.png', uploadedAt: '2026-02-01T00:00:00Z' }),
+      ]);
+
+      await repository.markDeleted('media/regret.png', '2026-08-18T09:00:00Z');
+
+      const page = await repository.findLivePage({ limit: 20 });
+      expect(page.shitposts.map((shitpost) => shitpost.shitpostKey)).toEqual([
+        'media/keeper.png',
+      ]);
     });
 
     test('a shitpost keeps its tags from save to findAll', async () => {
@@ -312,6 +363,64 @@ test('the DynamoDB repository rejects malformed rows at the database boundary', 
   dynamoDb.restore();
 });
 
+test('a saved shitpost carries the marker that lists it in the upload-time index', async () => {
+  const dynamoDb = mockClient(DynamoDBDocumentClient);
+  const written: Record<string, unknown>[] = [];
+  dynamoDb.on(PutCommand).callsFake((input) => {
+    written.push(input.Item);
+    return {};
+  });
+
+  const repository = dynamoDbShitpostRepository({
+    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+    tableName: 'TestCatalogue',
+  });
+  await repository.save(aShitpost({ shitpostKey: 'media/fresh.png' }));
+
+  expect(written[0]).toEqual(expect.objectContaining({ liveMarker: 'LIVE' }));
+  dynamoDb.restore();
+});
+
+test('a shitpost saved as deleted carries no marker, so the index never lists it', async () => {
+  const dynamoDb = mockClient(DynamoDBDocumentClient);
+  const written: Record<string, unknown>[] = [];
+  dynamoDb.on(PutCommand).callsFake((input) => {
+    written.push(input.Item);
+    return {};
+  });
+
+  const repository = dynamoDbShitpostRepository({
+    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+    tableName: 'TestCatalogue',
+  });
+  await repository.save(
+    aShitpost({ shitpostKey: 'media/regret.png', deletedAt: '2026-08-18T09:00:00Z' }),
+  );
+
+  expect(written[0]).not.toHaveProperty('liveMarker');
+  dynamoDb.restore();
+});
+
+test('deleting a shitpost strips its marker, dropping it out of the index', async () => {
+  const dynamoDb = mockClient(DynamoDBDocumentClient);
+  const updates: Record<string, unknown>[] = [];
+  dynamoDb.on(UpdateCommand).callsFake((input) => {
+    updates.push(input);
+    return {};
+  });
+
+  const repository = dynamoDbShitpostRepository({
+    client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
+    tableName: 'TestCatalogue',
+  });
+  await repository.markDeleted('media/regret.png', '2026-08-18T09:00:00Z');
+
+  expect(updates[0]?.UpdateExpression).toBe(
+    'SET deletedAt = :deletedAt REMOVE liveMarker',
+  );
+  dynamoDb.restore();
+});
+
 test('GET /shitposts responds 200 with the hoard as JSON, newest first', async () => {
   const newest = aShitpost({
     shitpostKey: 'media/fresh.mp4',
@@ -347,6 +456,89 @@ test('GET /shitposts does not serve a deleted shitpost', async () => {
   expect(JSON.parse(response.body ?? '')).toEqual({
     shitposts: [expect.objectContaining({ shitpostKey: 'media/keeper.png' })],
   });
+});
+
+const manyShitposts = (count: number) =>
+  Array.from({ length: count }, (_, index) =>
+    aShitpost({
+      shitpostKey: `media/${index}.png`,
+      uploadedAt: new Date(
+        Date.UTC(2026, 0, 1) + index * 60_000,
+      ).toISOString(),
+    }),
+  );
+
+test('GET /shitposts serves a screenful by default, not the whole hoard', async () => {
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository(manyShitposts(50)),
+  });
+
+  const response = await handler(aRequest());
+
+  const body = JSON.parse(response.body ?? '');
+  expect(body.shitposts).toHaveLength(20);
+  expect(body.nextCursor).toEqual(expect.any(String));
+});
+
+test('GET /shitposts honours an explicit limit', async () => {
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository(manyShitposts(50)),
+  });
+
+  const response = await handler(aRequest({ queryStringParameters: { limit: '5' } }));
+
+  expect(JSON.parse(response.body ?? '').shitposts).toHaveLength(5);
+});
+
+test('the cursor from one page fetches the next, with nothing repeated', async () => {
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository(manyShitposts(30)),
+  });
+
+  const first = JSON.parse(
+    (await handler(aRequest({ queryStringParameters: { limit: '20' } }))).body ?? '',
+  );
+  const second = JSON.parse(
+    (
+      await handler(
+        aRequest({
+          queryStringParameters: { limit: '20', cursor: first.nextCursor },
+        }),
+      )
+    ).body ?? '',
+  );
+
+  expect(second.shitposts).toHaveLength(10);
+  expect(second.nextCursor).toBeUndefined();
+  const keys = [...first.shitposts, ...second.shitposts].map(
+    (shitpost: { shitpostKey: string }) => shitpost.shitpostKey,
+  );
+  expect(new Set(keys).size).toBe(30);
+});
+
+test('a limit beyond the ceiling is clamped, so no caller can ask for the whole table', async () => {
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository(manyShitposts(200)),
+  });
+
+  const response = await handler(
+    aRequest({ queryStringParameters: { limit: '5000' } }),
+  );
+
+  expect(JSON.parse(response.body ?? '').shitposts).toHaveLength(100);
+});
+
+test('a nonsense limit falls back to the default rather than failing the request', async () => {
+  const handler = aCatalogueHandler({
+    shitposts: inMemoryRepository(manyShitposts(50)),
+  });
+
+  const response = await handler(
+    aRequest({ queryStringParameters: { limit: 'twenty' } }),
+  );
+
+  expect(response.statusCode).toBe(200);
+  expect(JSON.parse(response.body ?? '').shitposts).toHaveLength(20);
 });
 
 test('POST /shitposts stores a valid shitpost and responds 201', async () => {

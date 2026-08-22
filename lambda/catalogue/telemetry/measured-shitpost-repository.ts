@@ -35,12 +35,12 @@ export const measuredShitpostRepository = (
           record({ durationMs: now() - startedAt });
         }
       },
-      findLive: async () => {
+      findLivePage: async (pageOptions) => {
         const startedAt = now();
         try {
-          const found = await inner.findLive();
-          record({ itemCount: found.length });
-          return found;
+          const page = await inner.findLivePage(pageOptions);
+          record({ itemCount: page.shitposts.length });
+          return page;
         } finally {
           record({ durationMs: now() - startedAt });
         }

@@ -116,8 +116,15 @@ const dispatch = async (
     }
 
     if (method === 'GET') {
+      const page = await listShitposts(ports.shitposts, {
+        limit: event.queryStringParameters?.limit,
+        cursor: event.queryStringParameters?.cursor,
+      });
       return {
-        response: json(200, { shitposts: await listShitposts(ports.shitposts) }),
+        response: json(200, {
+          shitposts: page.shitposts,
+          ...(page.nextCursor === undefined ? {} : { nextCursor: page.nextCursor }),
+        }),
       };
     }
 

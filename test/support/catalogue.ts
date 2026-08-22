@@ -47,9 +47,22 @@ export const inMemoryRepository = (
   seed: readonly Shitpost[] = [],
 ): ShitpostRepository => {
   let stored: readonly Shitpost[] = [...seed];
+  const newestFirst = () =>
+    [...stored]
+      .filter((s) => s.deletedAt === undefined)
+      .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
   return {
     findAll: async () => stored,
-    findLive: async () => stored.filter((s) => s.deletedAt === undefined),
+    findLivePage: async ({ limit, cursor }) => {
+      const live = newestFirst();
+      const from = cursor === undefined ? 0 : Number(cursor);
+      const shitposts = live.slice(from, from + limit);
+      const next = from + shitposts.length;
+      return {
+        shitposts,
+        ...(next < live.length ? { nextCursor: String(next) } : {}),
+      };
+    },
     getByKey: async (shitpostKey) =>
       stored.find((s) => s.shitpostKey === shitpostKey),
     save: async (shitpost) => {
@@ -71,7 +84,7 @@ export const alwaysFailingRepository = (error: Error): ShitpostRepository => ({
   findAll: async () => {
     throw error;
   },
-  findLive: async () => {
+  findLivePage: async () => {
     throw error;
   },
   getByKey: async () => {
@@ -123,6 +136,7 @@ type Row = {
   SK: string;
   uploadedAt: string;
   tags: readonly string[];
+  liveMarker?: string;
   deletedAt?: string;
 };
 
@@ -131,8 +145,45 @@ const toRow = (shitpost: Shitpost): Row => ({
   SK: shitpost.shitpostKey,
   uploadedAt: shitpost.uploadedAt,
   tags: shitpost.tags,
-  ...(shitpost.deletedAt === undefined ? {} : { deletedAt: shitpost.deletedAt }),
+  ...(shitpost.deletedAt === undefined
+    ? { liveMarker: 'LIVE' }
+    : { deletedAt: shitpost.deletedAt }),
 });
+
+/**
+ * Stands in for the `byUploadedAt` GSI. Sparse like the real thing — a row
+ * without `liveMarker` is absent, not filtered — and it pages by
+ * ExclusiveStartKey, so the adapter's cursor round-trip is genuinely exercised
+ * rather than assumed.
+ */
+const queryTheIndex = (rows: readonly Row[], input: Record<string, any>) => {
+  const indexed = rows
+    .filter((row) => row.liveMarker !== undefined)
+    .sort((a, b) => a.uploadedAt.localeCompare(b.uploadedAt));
+  const ordered = input.ScanIndexForward === false ? [...indexed].reverse() : indexed;
+
+  const startAfter =
+    input.ExclusiveStartKey === undefined
+      ? 0
+      : ordered.findIndex((row) => row.SK === input.ExclusiveStartKey.SK) + 1;
+  const page = ordered.slice(startAfter, startAfter + (input.Limit ?? ordered.length));
+  const last = page[page.length - 1];
+  const exhausted = startAfter + page.length >= ordered.length;
+
+  return {
+    Items: page,
+    ...(exhausted || last === undefined
+      ? {}
+      : {
+          LastEvaluatedKey: {
+            PK: last.PK,
+            SK: last.SK,
+            liveMarker: last.liveMarker,
+            uploadedAt: last.uploadedAt,
+          },
+        }),
+  };
+};
 
 export const dynamoDbBackedRepository = (
   seed: readonly Shitpost[] = [],
@@ -141,7 +192,11 @@ export const dynamoDbBackedRepository = (
   const dynamoDb = mockClient(DynamoDBDocumentClient);
   dynamoDb
     .on(QueryCommand, { TableName: 'TestCatalogue' })
-    .callsFake(() => ({ Items: [...rows] }));
+    .callsFake((input) =>
+      input.IndexName === undefined
+        ? { Items: [...rows] }
+        : queryTheIndex(rows, input),
+    );
   dynamoDb
     .on(GetCommand, { TableName: 'TestCatalogue' })
     .callsFake((input) => ({
@@ -159,6 +214,7 @@ export const dynamoDbBackedRepository = (
       const row = rows.find((candidate) => candidate.SK === input.Key.SK);
       if (row) {
         row.deletedAt = input.ExpressionAttributeValues[':deletedAt'];
+        delete row.liveMarker;
       }
       return {};
     });
