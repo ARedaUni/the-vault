@@ -1,12 +1,20 @@
-import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { SignalStack } from '../lib/signal-stack';
 import { aCanonicalEvent } from './support/catalogue';
+import { anAppWithoutBundling } from './support/cdk';
+
+/**
+ * One synth, shared by every assertion below. The template is a snapshot and
+ * nothing mutates it, so re-synthesising per test bought the same
+ * CloudFormation sixty-odd times over.
+ */
+let template: Template | undefined;
 
 const synthesize = () => {
-  const app = new cdk.App();
-  const stack = new SignalStack(app, 'TestStack');
-  return Template.fromStack(stack);
+  template ??= Template.fromStack(
+    new SignalStack(anAppWithoutBundling(), 'TestStack'),
+  );
+  return template;
 };
 
 test('the health endpoint is publicly callable without auth', () => {
@@ -397,8 +405,7 @@ test('only one bucket carries the customer key — the public shell keeps defaul
 });
 
 test('the gallery distribution wears the web ACL when one is supplied', () => {
-  const app = new cdk.App();
-  const stack = new SignalStack(app, 'TestStack', {
+  const stack = new SignalStack(anAppWithoutBundling(), 'TestStack', {
     webAclArn: 'arn:aws:wafv2:us-east-1:111111111111:global/webacl/test/abc',
   });
   const template = Template.fromStack(stack);

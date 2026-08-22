@@ -4,6 +4,7 @@ import { AwsSolutionsChecks } from 'cdk-nag';
 import { GithubOidcStack } from '../lib/github-oidc-stack';
 import { SignalStack } from '../lib/signal-stack';
 import { WafStack } from '../lib/waf-stack';
+import { anAppWithoutBundling } from './support/cdk';
 
 const nagFindings = (stack: cdk.Stack) => {
   const annotations = Annotations.fromStack(stack);
@@ -15,8 +16,7 @@ const nagFindings = (stack: cdk.Stack) => {
 };
 
 test('SignalStack carries no unsuppressed AwsSolutions findings', () => {
-  const app = new cdk.App();
-  const stack = new SignalStack(app, 'TestStack');
+  const stack = new SignalStack(anAppWithoutBundling(), 'TestStack');
   cdk.Aspects.of(stack).add(new AwsSolutionsChecks());
 
   expect(nagFindings(stack)).toEqual([]);
