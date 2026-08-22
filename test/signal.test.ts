@@ -93,9 +93,25 @@ test('the catalogue table uses generic PK/SK string keys for single-table design
       { AttributeName: 'PK', KeyType: 'HASH' },
       { AttributeName: 'SK', KeyType: 'RANGE' },
     ],
-    AttributeDefinitions: [
+    AttributeDefinitions: Match.arrayWith([
       { AttributeName: 'PK', AttributeType: 'S' },
       { AttributeName: 'SK', AttributeType: 'S' },
+    ]),
+  });
+});
+
+test('the catalogue table orders live shitposts by upload time, so the gallery can page', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::DynamoDB::Table', {
+    GlobalSecondaryIndexes: [
+      Match.objectLike({
+        IndexName: 'byUploadedAt',
+        KeySchema: [
+          { AttributeName: 'liveMarker', KeyType: 'HASH' },
+          { AttributeName: 'uploadedAt', KeyType: 'RANGE' },
+        ],
+      }),
     ],
   });
 });

@@ -22,6 +22,7 @@ import * as scheduler from 'aws-cdk-lib/aws-scheduler';
 import * as schedulerTargets from 'aws-cdk-lib/aws-scheduler-targets';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { NagSuppressions } from 'cdk-nag';
+import type { NagPackSuppression } from 'cdk-nag';
 import { Construct } from 'constructs';
 import { Telescope } from './telescope';
 
@@ -134,6 +135,15 @@ export class SignalStack extends cdk.Stack {
       encryptionKey: hoardKey,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
       stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+    });
+
+    // Sparse by design: only live shitposts carry `liveMarker`, so deleted
+    // ones fall out of the index entirely and a page of 20 is 20, with no
+    // filter expression trimming it after the fact.
+    catalogueTable.addGlobalSecondaryIndex({
+      indexName: 'byUploadedAt',
+      partitionKey: { name: 'liveMarker', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'uploadedAt', type: dynamodb.AttributeType.STRING },
     });
 
     new cdk.CfnOutput(this, 'CatalogueTableName', {
@@ -591,9 +601,23 @@ export class SignalStack extends cdk.Stack {
       true,
     );
 
+    /**
+     * Every CDK grant on a table that carries a GSI fans out to `table/index/*`,
+     * because an index read is served by the index's own ARN. The wildcard
+     * widens nothing: an index is a re-keyed view of rows the grant already
+     * covers, and it stays pinned to the catalogue table.
+     */
+    const catalogueIndexWildcard: NagPackSuppression = {
+      id: 'AwsSolutions-IAM5',
+      appliesTo: [{ regex: '/^Resource::<CatalogueTable.*\\.Arn>\\/index\\/\\*$/' }],
+      reason:
+        'Grants on a table with a GSI expand to table/index/*; an index exposes no row the grant did not already reach, and the wildcard covers this one table.',
+    };
+
     NagSuppressions.addResourceSuppressions(
       catalogueFunction,
       [
+        catalogueIndexWildcard,
         {
           id: 'AwsSolutions-IAM4',
           reason:
@@ -612,6 +636,7 @@ export class SignalStack extends cdk.Stack {
     NagSuppressions.addResourceSuppressions(
       profileBuilderFunction,
       [
+        catalogueIndexWildcard,
         {
           id: 'AwsSolutions-IAM4',
           reason:
@@ -636,6 +661,7 @@ export class SignalStack extends cdk.Stack {
     NagSuppressions.addResourceSuppressions(
       taggerFunction,
       [
+        catalogueIndexWildcard,
         {
           id: 'AwsSolutions-IAM4',
           reason:
@@ -685,6 +711,7 @@ export class SignalStack extends cdk.Stack {
     NagSuppressions.addResourceSuppressions(
       harvesterFunction,
       [
+        catalogueIndexWildcard,
         {
           id: 'AwsSolutions-IAM4',
           reason:
