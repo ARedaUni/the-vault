@@ -5,15 +5,15 @@ export type RepositoryMeasurements = {
   itemCount: number;
 };
 
-export type InstrumentedRepository = {
-  repository: ShitpostRepository;
+export type MeasuredShitpostRepository = {
+  shitposts: ShitpostRepository;
   drain: () => RepositoryMeasurements;
 };
 
-export const withRepositoryTelemetry = (
+export const measuredShitpostRepository = (
   inner: ShitpostRepository,
   options: { now?: () => number } = {},
-): InstrumentedRepository => {
+): MeasuredShitpostRepository => {
   const now = options.now ?? Date.now;
   let repositoryDurationMs = 0;
   let itemCount = 0;
@@ -24,7 +24,7 @@ export const withRepositoryTelemetry = (
   };
 
   return {
-    repository: {
+    shitposts: {
       findAll: async () => {
         const startedAt = now();
         try {

@@ -1,13 +1,13 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
-import { dynamoDbShitpostRepository } from '../lambda/shared/adapters/dynamodb-shitposts';
-import { dynamoDbSignalRepository } from '../lambda/catalogue/adapters/signals';
-import { dynamoDbTasteProfileReader } from '../lambda/catalogue/adapters/taste-profiles';
+import { dynamoDbShitpostRepository } from '../lambda/shared/adapters/dynamodb-shitpost-repository';
+import { dynamoDbSignalRepository } from '../lambda/catalogue/adapters/dynamodb-signal-repository';
+import { dynamoDbTasteProfileReader } from '../lambda/catalogue/adapters/dynamodb-taste-profile-reader';
 import type { CatalogueEvent } from '../lambda/catalogue/triggers/http';
 import type { Shitpost } from '../lambda/shared/domain/shitpost';
 import type { ShitpostRepository } from '../lambda/shared/domain/shitpost-repository';
-import { withRepositoryTelemetry } from '../lambda/catalogue/telemetry/repository-telemetry';
+import { measuredShitpostRepository } from '../lambda/catalogue/telemetry/measured-shitpost-repository';
 import { emfFormat } from '../lambda/catalogue/telemetry/emf';
 import {
   aCanonicalEvent,
@@ -143,53 +143,53 @@ const shitpostRepositoryContract = (
 shitpostRepositoryContract('in-memory fake', inMemoryRepository);
 shitpostRepositoryContract('DynamoDB adapter', dynamoDbBackedRepository);
 shitpostRepositoryContract(
-  'instrumented decorator',
-  (seed) => withRepositoryTelemetry(inMemoryRepository(seed)).repository,
+  'measured decorator',
+  (seed) => measuredShitpostRepository(inMemoryRepository(seed)).shitposts,
 );
 
-test('the instrumented repository measures time spent in the port and items returned', async () => {
-  const { repository, drain } = withRepositoryTelemetry(
+test('the measured repository records time spent in the port and items returned', async () => {
+  const { shitposts, drain } = measuredShitpostRepository(
     inMemoryRepository([aShitpost(), aShitpost({ shitpostKey: 'media/two.png' })]),
     { now: tickingClock(40) },
   );
 
-  await repository.findAll();
-  await repository.save(aShitpost({ shitpostKey: 'media/three.png' }));
+  await shitposts.findAll();
+  await shitposts.save(aShitpost({ shitpostKey: 'media/three.png' }));
 
   expect(drain()).toEqual({ repositoryDurationMs: 80, itemCount: 2 });
 });
 
 test('a repository failure still records the time spent failing', async () => {
   const denied = new Error('AccessDeniedException');
-  const { repository, drain } = withRepositoryTelemetry(alwaysFailingRepository(denied), {
+  const { shitposts, drain } = measuredShitpostRepository(alwaysFailingRepository(denied), {
     now: tickingClock(40),
   });
 
-  await expect(repository.findAll()).rejects.toThrow(denied);
-  await expect(repository.save(aShitpost())).rejects.toThrow(denied);
+  await expect(shitposts.findAll()).rejects.toThrow(denied);
+  await expect(shitposts.save(aShitpost())).rejects.toThrow(denied);
 
   expect(drain()).toEqual({ repositoryDurationMs: 80, itemCount: 0 });
 });
 
-test('draining the telemetry resets it for the next request', async () => {
-  const { repository, drain } = withRepositoryTelemetry(inMemoryRepository([]), {
+test('draining the measurements resets them for the next request', async () => {
+  const { shitposts, drain } = measuredShitpostRepository(inMemoryRepository([]), {
     now: tickingClock(40),
   });
 
-  await repository.findAll();
+  await shitposts.findAll();
   drain();
 
   expect(drain()).toEqual({ repositoryDurationMs: 0, itemCount: 0 });
 });
 
 test('the canonical event carries repository timing and item count', async () => {
-  const { repository, drain } = withRepositoryTelemetry(
+  const { shitposts, drain } = measuredShitpostRepository(
     inMemoryRepository([aShitpost()]),
     { now: tickingClock(30) },
   );
   const events: Record<string, unknown>[] = [];
   const handler = aCatalogueHandler(
-    { shitposts: repository },
+    { shitposts },
     { emit: (event) => events.push(event), collect: drain },
   );
 

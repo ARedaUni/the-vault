@@ -4,7 +4,7 @@ import { marshall } from '@aws-sdk/util-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { createProfileBuilder } from '../lambda/profile-builder/triggers/stream';
 import type { StreamRecord } from '../lambda/profile-builder/triggers/stream';
-import { dynamoDbTasteProfileRepository } from '../lambda/profile-builder/adapters/taste-profile';
+import { dynamoDbTasteProfileRepository } from '../lambda/profile-builder/adapters/dynamodb-taste-profile-repository';
 import type { TasteProfileRepository } from '../lambda/profile-builder/domain/taste-profile-repository';
 
 const aSignalRecord = (

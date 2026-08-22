@@ -4,7 +4,7 @@ import {
 } from '@aws-sdk/client-secrets-manager';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { mockClient } from 'aws-sdk-client-mock';
-import { httpImageDownloader } from '../lambda/harvester/adapters/http-image-download';
+import { httpImageDownloader } from '../lambda/harvester/adapters/http-image-downloader';
 import { s3MediaUpload } from '../lambda/harvester/adapters/s3-media-upload';
 import { secretsManagerFeedUrl } from '../lambda/harvester/adapters/secrets-manager-feed-url';
 import { createHarvestSavedPosts } from '../lambda/harvester/usecases/harvest-saved-posts';

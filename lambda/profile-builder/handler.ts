@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
-import { dynamoDbTasteProfileRepository } from './adapters/taste-profile';
+import { dynamoDbTasteProfileRepository } from './adapters/dynamodb-taste-profile-repository';
 import { createProfileBuilder } from './triggers/stream';
 
 const environment = z

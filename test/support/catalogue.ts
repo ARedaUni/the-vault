@@ -7,13 +7,14 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
-import { dynamoDbShitpostRepository } from '../../lambda/shared/adapters/dynamodb-shitposts';
+import { dynamoDbShitpostRepository } from '../../lambda/shared/adapters/dynamodb-shitpost-repository';
 import { createShitpostsHandler } from '../../lambda/catalogue/triggers/http';
 import type {
   CanonicalRequestEvent,
   CataloguePorts,
   TelemetryOptions,
 } from '../../lambda/catalogue/triggers/http';
+import { shitpostSchema } from '../../lambda/shared/domain/shitpost';
 import type { Shitpost } from '../../lambda/shared/domain/shitpost';
 import type { ShitpostRepository } from '../../lambda/shared/domain/shitpost-repository';
 import type { Signal } from '../../lambda/shared/domain/signal';
@@ -34,12 +35,13 @@ export const aCanonicalEvent = (
   ...overrides,
 });
 
-export const aShitpost = (overrides: Partial<Shitpost> = {}): Shitpost => ({
-  shitpostKey: 'media/default.png',
-  uploadedAt: '2026-07-01T12:00:00Z',
-  tags: ['memes'],
-  ...overrides,
-});
+export const aShitpost = (overrides: Partial<Shitpost> = {}): Shitpost =>
+  shitpostSchema.parse({
+    shitpostKey: 'media/default.png',
+    uploadedAt: '2026-07-01T12:00:00Z',
+    tags: ['memes'],
+    ...overrides,
+  });
 
 export const inMemoryRepository = (
   seed: readonly Shitpost[] = [],

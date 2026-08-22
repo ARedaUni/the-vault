@@ -1,4 +1,4 @@
-import { redditFeedSavedPostSource } from '../lambda/harvester/adapters/reddit-saved';
+import { redditFeedSavedPostSource } from '../lambda/harvester/adapters/reddit-feed-saved-post-source';
 
 type CapturedRequest = {
   url: string;

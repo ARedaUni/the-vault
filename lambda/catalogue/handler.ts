@@ -1,18 +1,18 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { z } from 'zod';
-import { dynamoDbShitpostRepository } from '../shared/adapters/dynamodb-shitposts';
-import { dynamoDbSignalRepository } from './adapters/signals';
-import { dynamoDbTasteProfileReader } from './adapters/taste-profiles';
+import { dynamoDbShitpostRepository } from '../shared/adapters/dynamodb-shitpost-repository';
+import { dynamoDbSignalRepository } from './adapters/dynamodb-signal-repository';
+import { dynamoDbTasteProfileReader } from './adapters/dynamodb-taste-profile-reader';
 import { createShitpostsHandler } from './triggers/http';
 import { emfFormat } from './telemetry/emf';
-import { withRepositoryTelemetry } from './telemetry/repository-telemetry';
+import { measuredShitpostRepository } from './telemetry/measured-shitpost-repository';
 
 const environment = z
   .object({ CATALOGUE_TABLE_NAME: z.string().min(1) })
   .parse(process.env);
 
-const { repository, drain } = withRepositoryTelemetry(
+const { shitposts, drain } = measuredShitpostRepository(
   dynamoDbShitpostRepository({
     client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
     tableName: environment.CATALOGUE_TABLE_NAME,
@@ -21,7 +21,7 @@ const { repository, drain } = withRepositoryTelemetry(
 
 export const handler = createShitpostsHandler(
   {
-    shitposts: repository,
+    shitposts,
     signals: dynamoDbSignalRepository({
       client: DynamoDBDocumentClient.from(new DynamoDBClient({})),
       tableName: environment.CATALOGUE_TABLE_NAME,

@@ -4,6 +4,6 @@ export type SavedPost = {
   imageUrl: string;
 };
 
-export type SavedPostSource = {
-  fetchSaved: () => Promise<readonly SavedPost[]>;
-};
+export interface SavedPostSource {
+  fetchSaved(): Promise<readonly SavedPost[]>;
+}

@@ -3,9 +3,9 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { S3Client } from '@aws-sdk/client-s3';
 import { z } from 'zod';
-import { dynamoDbShitpostRepository } from '../shared/adapters/dynamodb-shitposts';
-import { bedrockVisionTagger } from './adapters/bedrock-vision';
-import { s3MediaStore } from './adapters/s3-media';
+import { dynamoDbShitpostRepository } from '../shared/adapters/dynamodb-shitpost-repository';
+import { bedrockVisionTagger } from './adapters/bedrock-vision-tagger';
+import { s3MediaStore } from './adapters/s3-media-store';
 import { createTagger } from './triggers/invocation';
 
 const environment = z
