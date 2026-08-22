@@ -5,63 +5,22 @@ import { expect, test } from '../support/test-options.js'
 /**
  * The Vault, served by the catalogue fake. No network leaves the dev server.
  *
- * Every expectation here is derived from the captured fixture rather than
- * fetched at runtime, so a failure means the app is wrong — never that AWS was
- * slow, redeployed, or holding different data.
+ * This tier is representative, not exhaustive — see docs/testing-strategy.md.
+ * Per-response behaviour (loading, failure, retry, empty, contract violation,
+ * tag rendering) lives in src/features/vault/layout/App.test.tsx, which asks
+ * the same questions in the same browser without paying for a dev server and a
+ * navigation. What is left here is the wiring only Playwright can exercise:
+ * a real page load, real media fetched over real HTTP, lazy loading, and the
+ * accessibility of the fully composed page.
+ *
+ * Every expectation is derived from the captured fixture rather than fetched
+ * at runtime, so a failure means the app is wrong — never that AWS was slow,
+ * redeployed, or holding different data.
  */
 
-test.describe('catalogue', () => {
+test.describe('opening the vault', () => {
   test(
-    'renders one tile per shitpost in the catalogue',
-    { tag: '@smoke' },
-    async ({ vaultPage }) => {
-      await vaultPage.open()
-
-      await expect(vaultPage.catalogueSize).toHaveText(
-        `${capturedCatalogue.length} shitposts`,
-      )
-      await expect(vaultPage.tiles).toHaveCount(capturedCatalogue.length)
-    },
-  )
-
-  test(
-    'renders every tile as either an image or a video',
-    { tag: '@smoke' },
-    async ({ vaultPage }) => {
-      await vaultPage.open()
-      await expect(vaultPage.tiles).toHaveCount(capturedCatalogue.length)
-
-      const [images, videos] = await Promise.all([
-        vaultPage.images.count(),
-        vaultPage.videos.count(),
-      ])
-
-      expect(images + videos).toBe(capturedCatalogue.length)
-    },
-  )
-
-  test(
-    'shows the tags the catalogue holds for a shitpost',
-    { tag: '@regression' },
-    async ({ vaultPage }) => {
-      // The fixture is captured, so this index is a fact about real data rather
-      // than a runtime search that could skip itself into vacuous success.
-      const position = capturedCatalogue.findIndex(
-        (shitpost) => shitpost.tags.length > 0,
-      )
-
-      await vaultPage.open()
-
-      await expect(vaultPage.tagsOf(position)).toHaveText([
-        ...(capturedCatalogue[position]?.tags ?? []),
-      ])
-    },
-  )
-})
-
-test.describe('media', () => {
-  test(
-    'requests media the catalogue can actually serve',
+    'loads the gallery and serves media the catalogue can actually resolve',
     { tag: '@smoke' },
     async ({ page, vaultPage }) => {
       // The fake 404s any key the catalogue does not hold, so a broken
@@ -75,10 +34,18 @@ test.describe('media', () => {
       })
 
       await vaultPage.open()
-      await expect(vaultPage.images.first()).toBeVisible()
+
+      await expect(page.getByRole('banner')).toBeVisible()
+      await expect(page.getByRole('main')).toBeVisible()
+      await expect(vaultPage.heading).toBeVisible()
+      await expect(vaultPage.catalogueSize).toHaveText(
+        `${capturedCatalogue.length} shitposts`,
+      )
+      await expect(vaultPage.tiles).toHaveCount(capturedCatalogue.length)
 
       // Tiles render before their lazy media resolves, so poll rather than
       // read once — otherwise this passes or fails on viewport size alone.
+      await expect(vaultPage.images.first()).toBeVisible()
       await expect.poll(() => served.length).toBeGreaterThan(0)
       expect(served.filter((status) => status >= 400)).toEqual([])
     },
@@ -86,7 +53,7 @@ test.describe('media', () => {
 
   test(
     'decodes the images rather than rendering broken links',
-    { tag: '@regression' },
+    { tag: '@smoke' },
     async ({ vaultPage }) => {
       await vaultPage.open()
       const firstImage = vaultPage.images.first()
@@ -97,68 +64,6 @@ test.describe('media', () => {
         (image: HTMLImageElement) => image.naturalWidth,
       )
       expect(naturalWidth).toBeGreaterThan(0)
-    },
-  )
-})
-
-test.describe('failure states', () => {
-  test(
-    'announces that it is loading while the catalogue is in flight',
-    { tag: '@regression' },
-    async ({ vaultPage, catalogue }) => {
-      await catalogue.stall(2_000)
-
-      await vaultPage.open()
-
-      await expect(vaultPage.loadingMessage).toBeVisible()
-      await expect(vaultPage.gallery).toBeVisible()
-      await expect(vaultPage.loadingMessage).toBeHidden()
-    },
-  )
-
-  test(
-    'reports a failure and recovers when the catalogue is retried',
-    { tag: '@regression' },
-    async ({ vaultPage, catalogue }) => {
-      // Fail every request while the outage lasts, then lift it. Failing only
-      // the first is not deterministic: StrictMode double-invokes the effect
-      // in dev, so the 503 would land on the request React then aborts.
-      await catalogue.fail(503)
-
-      await vaultPage.open()
-      await expect(vaultPage.errorMessage).toBeVisible()
-
-      await catalogue.serve()
-      await vaultPage.retryButton.click()
-
-      await expect(vaultPage.gallery).toBeVisible()
-      await expect(vaultPage.errorMessage).toBeHidden()
-    },
-  )
-
-  test(
-    'says the vault is empty when the catalogue holds nothing',
-    { tag: '@regression' },
-    async ({ vaultPage, catalogue }) => {
-      await catalogue.serve([])
-
-      await vaultPage.open()
-
-      await expect(vaultPage.emptyMessage).toBeVisible()
-      await expect(vaultPage.catalogueSize).toHaveText('0 shitposts')
-      await expect(vaultPage.gallery).toBeHidden()
-    },
-  )
-
-  test(
-    'reports a failure when the catalogue breaks its contract',
-    { tag: '@regression' },
-    async ({ vaultPage, catalogue }) => {
-      await catalogue.breakContract()
-
-      await vaultPage.open()
-
-      await expect(vaultPage.errorMessage).toBeVisible()
     },
   )
 })
@@ -179,19 +84,6 @@ test.describe('accessibility', () => {
         .analyze()
 
       expect(violations.map((violation) => violation.id)).toEqual([])
-    },
-  )
-
-  test(
-    'exposes the gallery through landmarks and a labelled list',
-    { tag: '@regression' },
-    async ({ page, vaultPage }) => {
-      await vaultPage.open()
-
-      await expect(page.getByRole('banner')).toBeVisible()
-      await expect(page.getByRole('main')).toBeVisible()
-      await expect(vaultPage.heading).toBeVisible()
-      await expect(vaultPage.gallery).toBeVisible()
     },
   )
 })

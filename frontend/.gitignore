@@ -28,6 +28,15 @@ test-results/
 playwright-report/
 blob-report/
 
+# vitest browser mode — failure screenshots and attachments
+__screenshots__/
+.vitest-attachments/
+
+# MSW's service worker is a generated file, but the browser tier cannot start
+# without it and CI only runs `npm ci`. The repo root ignores *.js, so it has
+# to be re-included explicitly. Regenerate with `npx msw init public --save`.
+!public/mockServiceWorker.js
+
 # storybook
 storybook-static/
 *.storybook.log

@@ -19,7 +19,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
  */
 export const capturedCatalogue: readonly Shitpost[] =
   exactShitpostsResponseSchema.parse(
-    JSON.parse(readFileSync(path.join(here, '../fixtures/catalogue.json'), 'utf8')),
+    JSON.parse(readFileSync(path.join(here, '../../src/test/fixtures/catalogue.json'), 'utf8')),
   ).shitposts
 
 /** A real, decodable 1x1 PNG — enough for naturalWidth to be non-zero. */
@@ -37,12 +37,6 @@ const asJson = (body: unknown) => ({
 export type CatalogueFake = {
   /** Answer with these shitposts. Defaults to the captured catalogue. */
   serve(shitposts?: readonly Shitpost[]): Promise<void>
-  /** Answer with an HTTP error, until `serve` is called again. */
-  fail(status: number): Promise<void>
-  /** Answer with a body that violates the contract the app parses. */
-  breakContract(): Promise<void>
-  /** Hold every catalogue request open for `ms` before answering. */
-  stall(ms: number): Promise<void>
 }
 
 /**
@@ -86,24 +80,6 @@ export const catalogueFake = async (page: Page): Promise<CatalogueFake> => {
   const fake: CatalogueFake = {
     serve: (shitposts = capturedCatalogue) =>
       answer((route) => route.fulfill(asJson({ shitposts }))),
-
-    fail: (status) =>
-      answer((route) =>
-        route.fulfill({
-          status,
-          contentType: 'application/json',
-          body: JSON.stringify({ error: 'catalogue unavailable' }),
-        }),
-      ),
-
-    breakContract: () =>
-      answer((route) => route.fulfill(asJson({ shitposts: [{ shitpostKey: 42 }] }))),
-
-    stall: (ms) =>
-      answer(async (route) => {
-        await new Promise((resolve) => setTimeout(resolve, ms))
-        await route.fulfill(asJson({ shitposts: capturedCatalogue }))
-      }),
   }
 
   await fake.serve()

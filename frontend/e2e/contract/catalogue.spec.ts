@@ -20,7 +20,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const capturedKeys = Object.keys(
   exactShitpostsResponseSchema.parse(
     JSON.parse(
-      readFileSync(path.join(here, '../fixtures/catalogue.json'), 'utf8'),
+      readFileSync(path.join(here, '../../src/test/fixtures/catalogue.json'), 'utf8'),
     ),
   ).shitposts[0] ?? {},
 ).sort()

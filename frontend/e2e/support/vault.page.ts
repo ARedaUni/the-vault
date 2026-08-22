@@ -37,36 +37,8 @@ export class VaultPage {
     return this.page.locator('[data-media-kind="image"]')
   }
 
-  get videos(): Locator {
-    return this.page.locator('[data-media-kind="video"]')
-  }
-
-  get loadingMessage(): Locator {
-    return this.page.getByRole('status')
-  }
-
-  get errorMessage(): Locator {
-    return this.page.getByRole('alert')
-  }
-
-  get retryButton(): Locator {
-    return this.page.getByRole('button', { name: 'Try again' })
-  }
-
-  get emptyMessage(): Locator {
-    return this.page.getByText('The vault is empty')
-  }
-
   /** Opens the gallery and waits for the catalogue to settle. */
   async open(): Promise<void> {
     await this.page.goto('/')
-  }
-
-  /** The tag chips rendered on a single tile, by position in the grid. */
-  tagsOf(position: number): Locator {
-    return this.tiles
-      .nth(position)
-      .getByRole('list', { name: 'Tags' })
-      .getByRole('listitem')
   }
 }

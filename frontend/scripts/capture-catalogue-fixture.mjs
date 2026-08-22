@@ -50,7 +50,7 @@ if (!Array.isArray(shitposts) || shitposts.length === 0) {
 }
 
 const captured = { shitposts: shitposts.slice(0, SAMPLE_SIZE) }
-const destination = path.join(frontend, 'e2e/fixtures/catalogue.json')
+const destination = path.join(frontend, 'src/test/fixtures/catalogue.json')
 
 writeFileSync(destination, `${JSON.stringify(captured, null, 2)}\n`)
 
