@@ -1,6 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright'
-import { capturedCatalogue } from '../support/catalogue.fake.js'
-import { expect, test } from '../support/test-options.js'
+import { capturedCatalogue } from '../support/app/catalogue.fake.js'
+import { expect, test } from '../support/app/options.js'
 
 /**
  * The Vault, served by the catalogue fake. No network leaves the dev server.

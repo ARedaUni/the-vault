@@ -28,19 +28,21 @@ src/
 │   ├── components/Tile.tsx
 │   └── layout/App.tsx
 ├── hooks/use-catalogue.ts      loading | ready | failed state machine
+├── test/fixtures/catalogue.json  captured from production, never hand-written
 ├── config.ts                   zod-parsed environment
 └── main.tsx
 
 e2e/
 ├── app/vault.spec.ts           the gallery. Hermetic.
 ├── contract/catalogue.spec.ts  the deployed API. Live.
-├── fixtures/catalogue.json     captured from production, never hand-written
-└── support/
-    ├── test-options.ts         app fixtures — installs the fake automatically
-    ├── contract-options.ts     contract fixtures — no stubs, real HTTP
-    ├── catalogue.fake.ts       the catalogue port, faked at the HTTP boundary
-    ├── catalogue.client.ts     typed API calls, contract suite only
-    └── vault.page.ts           locators and actions
+└── support/                    mirrors the split above — one folder per world
+    ├── app/
+    │   ├── options.ts          app fixtures — installs the fake automatically
+    │   ├── catalogue.fake.ts   the catalogue port, faked at the HTTP boundary
+    │   └── vault.page.ts       locators and actions
+    └── contract/
+        ├── options.ts          contract fixtures — no stubs, real HTTP
+        └── catalogue.client.ts typed API calls, contract suite only
 ```
 
 UI lives under `features/<domain>/` with `components/` for single-purpose
@@ -56,8 +58,10 @@ opening one file.
 
 ## Conventions
 
-**Import `test` and `expect` from `e2e/support/test-options.ts`, never from
-`@playwright/test`.** Page objects arrive injected. Constructing one in a test
+**Import `test` and `expect` from your world's `e2e/support/<world>/options.ts`,
+never from `@playwright/test`.** The import line is what says which world a spec
+belongs to — `support/app/options.js` cannot reach AWS, `support/contract/options.js`
+talks to nothing else. See [ADR 1](../docs/adr/0001-two-worlds-of-frontend-test-support.md). Page objects arrive injected. Constructing one in a test
 body (`new VaultPage(page)`) means the fixture layer has been bypassed.
 
 **Locators are semantic and live on the page object as getters.** `getByRole`,

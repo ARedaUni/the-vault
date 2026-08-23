@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { exactShitpostsResponseSchema } from '../../src/api/catalogue.contract.js'
-import { expect, test } from '../support/contract-options.js'
+import { expect, test } from '../support/contract/options.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 

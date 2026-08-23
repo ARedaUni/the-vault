@@ -5,7 +5,7 @@ import type { Page } from '@playwright/test'
 import {
   type Shitpost,
   exactShitpostsResponseSchema,
-} from '../../src/api/catalogue.contract.js'
+} from '../../../src/api/catalogue.contract.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -19,7 +19,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
  */
 export const capturedCatalogue: readonly Shitpost[] =
   exactShitpostsResponseSchema.parse(
-    JSON.parse(readFileSync(path.join(here, '../../src/test/fixtures/catalogue.json'), 'utf8')),
+    JSON.parse(readFileSync(path.join(here, '../../../src/test/fixtures/catalogue.json'), 'utf8')),
   ).shitposts
 
 /** A real, decodable 1x1 PNG — enough for naturalWidth to be non-zero. */
