@@ -5,7 +5,7 @@ const countLabel = (total: number): string =>
   `${total} ${total === 1 ? 'shitpost' : 'shitposts'}`
 
 export const App = () => {
-  const { state, retry } = useShitposts()
+  const { state, retry, loadMore } = useShitposts()
 
   return (
     <>
@@ -38,11 +38,18 @@ export const App = () => {
           (state.shitposts.length === 0 ? (
             <p className="notice">The vault is empty.</p>
           ) : (
-            <ul aria-label="Shitposts" className="grid">
-              {state.shitposts.map((shitpost) => (
-                <Tile key={shitpost.shitpostKey} shitpost={shitpost} />
-              ))}
-            </ul>
+            <>
+              <ul aria-label="Shitposts" className="grid">
+                {state.shitposts.map((shitpost) => (
+                  <Tile key={shitpost.shitpostKey} shitpost={shitpost} />
+                ))}
+              </ul>
+              {state.hasMore && (
+                <button type="button" className="more" onClick={loadMore}>
+                  Load more
+                </button>
+              )}
+            </>
           ))}
       </main>
     </>

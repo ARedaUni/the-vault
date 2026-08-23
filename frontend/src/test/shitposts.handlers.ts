@@ -1,6 +1,7 @@
 import { HttpResponse, delay, http } from 'msw'
 import type { RequestHandler } from 'msw'
 import type { Shitpost } from '@/api/shitposts.contract'
+import { pageOf } from './pageOf'
 import { capturedShitposts } from './shitposts.fixture'
 
 /**
@@ -13,7 +14,7 @@ import { capturedShitposts } from './shitposts.fixture'
  * only HTTP is answered from here.
  */
 
-const CATALOGUE = '/api/shitposts'
+const SHITPOSTS = '/api/shitposts'
 
 /** A real, decodable 1x1 PNG — enough for naturalWidth to be non-zero. */
 const PIXEL_BASE64 =
@@ -23,13 +24,15 @@ const pixel = (): Uint8Array =>
   Uint8Array.from(atob(PIXEL_BASE64), (character) => character.charCodeAt(0))
 
 export const shitposts = {
-  /** Answer with these shitposts. Defaults to the captured shitposts. */
-  serves: (shitposts: readonly Shitpost[] = capturedShitposts): RequestHandler =>
-    http.get(CATALOGUE, () => HttpResponse.json({ shitposts })),
+  /** Answer with these shitposts, one page at a time. Defaults to the captured ones. */
+  serves: (all: readonly Shitpost[] = capturedShitposts): RequestHandler =>
+    http.get(SHITPOSTS, ({ request }) =>
+      HttpResponse.json(pageOf(all, new URL(request.url))),
+    ),
 
   /** Answer with an HTTP error. */
   fails: (status: number): RequestHandler =>
-    http.get(CATALOGUE, () =>
+    http.get(SHITPOSTS, () =>
       // Verbatim from the deployed API, which still calls itself the
       // catalogue. A fake that invents a nicer error body proves nothing.
       HttpResponse.json({ error: 'catalogue unavailable' }, { status }),
@@ -37,13 +40,13 @@ export const shitposts = {
 
   /** Answer with a body that violates the contract the app parses. */
   breaksContract: (): RequestHandler =>
-    http.get(CATALOGUE, () =>
+    http.get(SHITPOSTS, () =>
       HttpResponse.json({ shitposts: [{ shitpostKey: 42 }] }),
     ),
 
   /** Hold every shitposts request open for `ms` before answering. */
   stalls: (ms: number): RequestHandler =>
-    http.get(CATALOGUE, async () => {
+    http.get(SHITPOSTS, async () => {
       await delay(ms)
       return HttpResponse.json({ shitposts: capturedShitposts })
     }),

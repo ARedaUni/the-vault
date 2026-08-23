@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from './App'
-import { capturedShitposts } from '@/test/shitposts.fixture'
+import { capturedShitposts, manyShitposts } from '@/test/shitposts.fixture'
 import { shitposts, healthyShitposts, media } from '@/test/shitposts.handlers'
 import { mswBrowserWorker } from '@/test/msw.browser.setup'
 
@@ -41,6 +41,35 @@ describe('the gallery loads', () => {
     const videos = screen.container.querySelectorAll('[data-media-kind="video"]')
 
     expect(images.length + videos.length).toBe(capturedShitposts.length)
+  })
+
+  it('appends the next page when asked for more', async () => {
+    // Thirty against a twenty-a-page API: one page held back, so the count
+    // moving from 20 to 30 can only mean the app asked for the second page
+    // and kept the first. A fake that served all thirty at once would make
+    // this pass without any paging in the app at all.
+    const hoard = manyShitposts(30)
+    mswBrowserWorker.use(shitposts.serves(hoard), media(hoard))
+
+    const screen = await render(<App />)
+    await expect.element(screen.getByText('20 shitposts')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Load more' }))
+
+    await expect.element(screen.getByText('30 shitposts')).toBeInTheDocument()
+  })
+
+  it('offers nothing more to load once the API is out of pages', async () => {
+    mswBrowserWorker.use(...healthyShitposts())
+
+    const screen = await render(<App />)
+    await expect
+      .element(screen.getByText(`${capturedShitposts.length} shitposts`))
+      .toBeInTheDocument()
+
+    await expect
+      .element(screen.getByRole('button', { name: 'Load more' }))
+      .not.toBeInTheDocument()
   })
 
   it('shows the tags the API holds for a shitpost', async () => {

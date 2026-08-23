@@ -6,6 +6,7 @@ import {
   type Shitpost,
   exactShitpostsResponseSchema,
 } from '../../../src/api/shitposts.contract.js'
+import { pageOf } from '../../../src/test/pageOf.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -35,7 +36,10 @@ const asJson = (body: unknown) => ({
 })
 
 export type ShitpostsFake = {
-  /** Answer with these shitposts. Defaults to the captured shitposts. */
+  /**
+   * Answer with these shitposts, one page at a time, and serve their media.
+   * Defaults to the captured shitposts.
+   */
   serve(shitposts?: readonly Shitpost[]): Promise<void>
 }
 
@@ -51,7 +55,10 @@ export type ShitpostsFake = {
  * missing image rather than passing because a blanket stub answered anything.
  */
 export const shitpostsFake = async (page: Page): Promise<ShitpostsFake> => {
-  const keys = new Set(capturedShitposts.map((shitpost) => shitpost.shitpostKey))
+  // Rebuilt by `serve`, so a spec that supplies its own hoard gets media for
+  // it. Keyed off the captured set alone, a bigger hoard would 404 every tile
+  // and read as a broken mediaUrlFor rather than a fake that was not told.
+  let keys = new Set(capturedShitposts.map((shitpost) => shitpost.shitpostKey))
 
   // Registered first, so it matches last: Playwright checks routes newest-first.
   // Anything leaving the dev server is aborted, which turns a stub that quietly
@@ -72,14 +79,26 @@ export const shitpostsFake = async (page: Page): Promise<ShitpostsFake> => {
       : route.fulfill({ status: 404, contentType: 'text/plain', body: 'no such media' })
   })
 
+  // Matched on pathname rather than by glob, and deliberately so. The route has
+  // to survive the `?cursor=` the gallery adds once it pages, but the obvious
+  // widening — '**/api/shitposts*' — also matches the dev server's own
+  // /src/api/shitposts.ts, and answering the app's source module with a JSON
+  // body kills the module graph and blanks the page. A pathname test ignores
+  // the query without reaching anything else.
+  const SHITPOSTS = (url: URL) => url.pathname === '/api/shitposts'
+
   const answer = async (handler: Parameters<Page['route']>[1]) => {
-    await page.unroute('**/api/shitposts')
-    await page.route('**/api/shitposts', handler)
+    await page.unroute(SHITPOSTS)
+    await page.route(SHITPOSTS, handler)
   }
 
   const fake: ShitpostsFake = {
-    serve: (shitposts = capturedShitposts) =>
-      answer((route) => route.fulfill(asJson({ shitposts }))),
+    serve: (all = capturedShitposts) => {
+      keys = new Set(all.map((shitpost) => shitpost.shitpostKey))
+      return answer((route) =>
+        route.fulfill(asJson(pageOf(all, new URL(route.request().url())))),
+      )
+    },
   }
 
   await fake.serve()

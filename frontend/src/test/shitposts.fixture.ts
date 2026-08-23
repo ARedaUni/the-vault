@@ -17,6 +17,26 @@ import captured from './fixtures/shitposts.json'
 export const capturedShitposts: readonly Shitpost[] =
   exactShitpostsResponseSchema.parse(captured).shitposts
 
+/**
+ * A hoard larger than one page. The captured fixture holds twelve, and the API
+ * serves twenty at a time, so nothing captured can demonstrate paging on its
+ * own. Every field but the key and the timestamp is copied from a real row —
+ * and those two are the only ones paging actually orders by.
+ */
+export const manyShitposts = (count: number): readonly Shitpost[] =>
+  Array.from({ length: count }, (_, index) => {
+    const real = capturedShitposts[index % capturedShitposts.length]
+    if (real === undefined) {
+      throw new Error('the captured fixture is empty — cannot build a page')
+    }
+
+    return {
+      ...real,
+      shitpostKey: `media/page-filler-${index}.png`,
+      uploadedAt: new Date(Date.UTC(2026, 0, 1) + index * 60_000).toISOString(),
+    }
+  })
+
 /** The first shitpost carrying at least one tag, for tag-rendering specs. */
 export const firstTaggedIndex = capturedShitposts.findIndex(
   (shitpost) => shitpost.tags.length > 0,
