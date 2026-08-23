@@ -1,8 +1,8 @@
 import { test as base, expect } from '@playwright/test'
-import { type CatalogueClient, catalogueClient } from './catalogue.client.js'
+import { type ShitpostsClient, shitpostsClient } from './shitposts.client.js'
 
 type ContractFixtures = {
-  catalogue: CatalogueClient
+  shitposts: ShitpostsClient
 }
 
 /**
@@ -13,8 +13,8 @@ type ContractFixtures = {
  * shaped the way this frontend parses it? Everything here talks to real AWS.
  */
 export const test = base.extend<ContractFixtures>({
-  catalogue: async ({ request }, use) => {
-    await use(catalogueClient(request))
+  shitposts: async ({ request }, use) => {
+    await use(shitpostsClient(request))
   },
 })
 

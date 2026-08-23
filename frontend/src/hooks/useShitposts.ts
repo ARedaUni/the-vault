@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
-import { type Shitpost, fetchShitposts } from '../api/catalogue'
+import { type Shitpost, fetchShitposts } from '../api/shitposts'
 
-export type CatalogueState =
+export type ShitpostsState =
   | { status: 'loading' }
   | { status: 'ready'; shitposts: readonly Shitpost[] }
   | { status: 'failed'; message: string }
 
-export type Catalogue = {
-  state: CatalogueState
+export type UseShitposts = {
+  state: ShitpostsState
   retry: () => void
 }
 
-export const useCatalogue = (): Catalogue => {
-  const [state, setState] = useState<CatalogueState>({ status: 'loading' })
+export const useShitposts = (): UseShitposts => {
+  const [state, setState] = useState<ShitpostsState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export const useCatalogue = (): Catalogue => {
           message:
             error instanceof Error
               ? error.message
-              : 'The catalogue sent something unreadable',
+              : 'The shitposts API sent something unreadable',
         })
       })
 

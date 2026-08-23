@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mediaKindOf } from './media-kind'
+import { mediaKindOf } from './mediaKind'
 
 describe('mediaKindOf', () => {
   it('reads a known video extension as video', () => {

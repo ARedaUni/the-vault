@@ -1,9 +1,9 @@
 import { AxeBuilder } from '@axe-core/playwright'
-import { capturedCatalogue } from '../support/app/catalogue.fake.js'
+import { capturedShitposts } from '../support/app/shitposts.fake.js'
 import { expect, test } from '../support/app/options.js'
 
 /**
- * The Vault, served by the catalogue fake. No network leaves the dev server.
+ * The Vault, served by the shitposts fake. No network leaves the dev server.
  *
  * This tier is representative, not exhaustive — see docs/testing-strategy.md.
  * Per-response behaviour (loading, failure, retry, empty, contract violation,
@@ -20,10 +20,10 @@ import { expect, test } from '../support/app/options.js'
 
 test.describe('opening the vault', () => {
   test(
-    'loads the gallery and serves media the catalogue can actually resolve',
+    'loads the gallery and serves media the API can actually resolve',
     { tag: '@smoke' },
     async ({ page, vaultPage }) => {
-      // The fake 404s any key the catalogue does not hold, so a broken
+      // The fake 404s any key the API does not advertise, so a broken
       // mediaUrlFor shows up here as a missing image rather than passing
       // because a blanket stub answered everything.
       const served: number[] = []
@@ -38,10 +38,10 @@ test.describe('opening the vault', () => {
       await expect(page.getByRole('banner')).toBeVisible()
       await expect(page.getByRole('main')).toBeVisible()
       await expect(vaultPage.heading).toBeVisible()
-      await expect(vaultPage.catalogueSize).toHaveText(
-        `${capturedCatalogue.length} shitposts`,
+      await expect(vaultPage.shitpostCount).toHaveText(
+        `${capturedShitposts.length} shitposts`,
       )
-      await expect(vaultPage.tiles).toHaveCount(capturedCatalogue.length)
+      await expect(vaultPage.tiles).toHaveCount(capturedShitposts.length)
 
       // Tiles render before their lazy media resolves, so poll rather than
       // read once — otherwise this passes or fails on viewport size alone.

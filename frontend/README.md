@@ -13,7 +13,7 @@ npm run test:smoke    # the fast subset
 npm run test:ui       # Playwright's watch-mode UI
 
 npm run test:contract # the ONLY suite that talks to AWS. Not in CI.
-npm run fixture:capture  # refresh the captured catalogue from the live API
+npm run fixture:capture  # refresh the captured shitposts from the live API
 ```
 
 ## Layout
@@ -21,28 +21,28 @@ npm run fixture:capture  # refresh the captured catalogue from the live API
 ```
 src/
 ├── api/
-│   ├── catalogue.contract.ts   the wire format, and the only place it is stated
-│   └── catalogue.ts            fetch + media URL construction
-├── domain/media-kind.ts        image vs video, by extension
+│   ├── shitposts.contract.ts   the wire format, and the only place it is stated
+│   └── shitposts.ts            fetch + media URL construction
+├── domain/mediaKind.ts          image vs video, by extension
 ├── features/vault/             UI, sliced by feature
 │   ├── components/Tile.tsx
 │   └── layout/App.tsx
-├── hooks/use-catalogue.ts      loading | ready | failed state machine
-├── test/fixtures/catalogue.json  captured from production, never hand-written
+├── hooks/useShitposts.ts        loading | ready | failed state machine
+├── test/fixtures/shitposts.json  captured from production, never hand-written
 ├── config.ts                   zod-parsed environment
 └── main.tsx
 
 e2e/
 ├── app/vault.spec.ts           the gallery. Hermetic.
-├── contract/catalogue.spec.ts  the deployed API. Live.
+├── contract/shitposts.spec.ts  the deployed API. Live.
 └── support/                    mirrors the split above — one folder per world
     ├── app/
     │   ├── options.ts          app fixtures — installs the fake automatically
-    │   ├── catalogue.fake.ts   the catalogue port, faked at the HTTP boundary
+    │   ├── shitposts.fake.ts   the shitposts port, faked at the HTTP boundary
     │   └── vault.page.ts       locators and actions
     └── contract/
         ├── options.ts          contract fixtures — no stubs, real HTTP
-        └── catalogue.client.ts typed API calls, contract suite only
+        └── shitposts.client.ts typed API calls, contract suite only
 ```
 
 UI lives under `features/<domain>/` with `components/` for single-purpose
@@ -61,8 +61,13 @@ opening one file.
 **Import `test` and `expect` from your world's `e2e/support/<world>/options.ts`,
 never from `@playwright/test`.** The import line is what says which world a spec
 belongs to — `support/app/options.js` cannot reach AWS, `support/contract/options.js`
-talks to nothing else. See [ADR 1](../docs/adr/0001-two-worlds-of-frontend-test-support.md). Page objects arrive injected. Constructing one in a test
-body (`new VaultPage(page)`) means the fixture layer has been bypassed.
+talks to nothing else. See [ADR 1](../docs/adr/0001-two-worlds-of-frontend-test-support.md).
+Page objects arrive injected. Constructing one in a test body
+(`new VaultPage(page)`) means the fixture layer has been bypassed.
+
+**Filenames match their primary export.** `Tile.tsx` exports `Tile`,
+`useShitposts.ts` exports `useShitposts`. One rule, no kebab-case exception for
+non-components — the import line then tells you exactly what you are getting.
 
 **Locators are semantic and live on the page object as getters.** `getByRole`,
 `getByLabel`, `getByText` — never XPath, and CSS only where no role exists
@@ -88,12 +93,12 @@ apart. When it goes red you cannot know which broke, so eventually you stop
 looking. The suites are split so each answers exactly one question.
 
 **`e2e/app/` — is this frontend correct?** Every request is answered by
-`catalogue.fake.ts`. It is a hand-written fake, not a mock: it implements the
-catalogue's HTTP contract, and for an app under test in a real browser HTTP
+`shitposts.fake.ts`. It is a hand-written fake, not a mock: it implements the
+API's HTTP contract, and for an app under test in a real browser HTTP
 *is* the port — there is no module graph to inject into, so `page.route` is
 where the fake plugs in. A catch-all route aborts anything addressed outside
 the dev server, which is what makes "hermetic" a property rather than a hope.
-Media is served too, and any key the catalogue does not hold gets a 404, so a
+Media is served too, and any key the API does not advertise gets a 404, so a
 broken `mediaUrlFor` surfaces as a missing image instead of passing because a
 blanket stub answered everything.
 
@@ -114,7 +119,7 @@ than admired.
 
 ## The API contract
 
-`src/api/catalogue.contract.ts` states the catalogue's wire format once, and
+`src/api/shitposts.contract.ts` states the wire format once, and
 derives two schemas from it:
 
 - **`shitpostsResponseSchema`** — tolerant, used by the app. Unknown keys are

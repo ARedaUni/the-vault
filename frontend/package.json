@@ -19,7 +19,7 @@
     "test:stories": "vitest run --project storybook",
     "test:smoke": "playwright test --grep @smoke",
     "test:contract": "playwright test --config playwright.contract.config.ts",
-    "fixture:capture": "node scripts/capture-catalogue-fixture.mjs",
+    "fixture:capture": "node scripts/capture-shitposts-fixture.mjs",
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
     "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run test:browser && npm run test:stories && npm test"

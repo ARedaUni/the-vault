@@ -1,11 +1,11 @@
-import { useCatalogue } from '@/hooks/use-catalogue'
+import { useShitposts } from '@/hooks/useShitposts'
 import { Tile } from '../components/Tile'
 
 const countLabel = (total: number): string =>
   `${total} ${total === 1 ? 'shitpost' : 'shitposts'}`
 
 export const App = () => {
-  const { state, retry } = useCatalogue()
+  const { state, retry } = useShitposts()
 
   return (
     <>

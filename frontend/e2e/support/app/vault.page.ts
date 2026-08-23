@@ -17,7 +17,7 @@ export class VaultPage {
     return this.page.getByRole('heading', { level: 1 })
   }
 
-  get catalogueSize(): Locator {
+  get shitpostCount(): Locator {
     return this.page.getByText(/\d+ shitposts?$/)
   }
 
@@ -37,7 +37,7 @@ export class VaultPage {
     return this.page.locator('[data-media-kind="image"]')
   }
 
-  /** Opens the gallery and waits for the catalogue to settle. */
+  /** Opens the gallery and waits for the shitposts to settle. */
   async open(): Promise<void> {
     await this.page.goto('/')
   }

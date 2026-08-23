@@ -5,17 +5,17 @@ export type ApiResponse = {
   body: unknown
 }
 
-export type CatalogueClient = {
+export type ShitpostsClient = {
   listShitposts(page?: { limit?: number; cursor?: string }): Promise<ApiResponse>
 }
 
 /**
- * Talks to the catalogue through the same origin the browser uses, so the test
+ * Talks to the API through the same origin the browser uses, so the test
  * exercises the real proxy and the real deployed API rather than a stub.
  */
-export const catalogueClient = (
+export const shitpostsClient = (
   request: APIRequestContext,
-): CatalogueClient => ({
+): ShitpostsClient => ({
   async listShitposts(page = {}): Promise<ApiResponse> {
     const response = await request.get('/api/shitposts', {
       params: {

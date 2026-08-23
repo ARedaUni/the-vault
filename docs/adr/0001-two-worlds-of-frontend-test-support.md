@@ -37,10 +37,10 @@ identically so the directory carries the meaning instead of the filename:
 ```
 e2e/
   app/       vault.spec.ts
-  contract/  catalogue.spec.ts
+  contract/  shitposts.spec.ts
   support/
-    app/       options.ts, catalogue.fake.ts, vault.page.ts
-    contract/  options.ts, catalogue.client.ts
+    app/       options.ts, shitposts.fake.ts, vault.page.ts
+    contract/  options.ts, shitposts.client.ts
 ```
 
 Each world exposes exactly one entry point — `support/<world>/options.ts` — which
@@ -54,7 +54,7 @@ The import line now names the world: `../support/app/options.js` versus
 `../support/contract/options.js`. A spec in the wrong world is visible in a
 diff rather than discoverable only by reading fixture definitions.
 
-Hermeticity stays enforced by code, not convention. `support/app/catalogue.fake.ts`
+Hermeticity stays enforced by code, not convention. `support/app/shitposts.fake.ts`
 registers an abort route for every non-localhost request and installs itself as
 an `auto` fixture, so an app spec cannot reach AWS even if it forgets to ask for
 the fake. The directory split makes that guarantee legible; it does not replace

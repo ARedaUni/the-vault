@@ -1,10 +1,10 @@
 import { test as base, expect } from '@playwright/test'
-import { type CatalogueFake, catalogueFake } from './catalogue.fake.js'
+import { type ShitpostsFake, shitpostsFake } from './shitposts.fake.js'
 import { VaultPage } from './vault.page.js'
 
 type VaultFixtures = {
   vaultPage: VaultPage
-  catalogue: CatalogueFake
+  shitposts: ShitpostsFake
 }
 
 /**
@@ -12,14 +12,14 @@ type VaultFixtures = {
  * `expect` from here and never from '@playwright/test' directly — page objects
  * are injected, never constructed in a test body.
  *
- * The catalogue fake is `auto`, so it installs for every test whether or not
+ * The shitposts fake is `auto`, so it installs for every test whether or not
  * the test names it. Hermeticity that depends on remembering to ask for it is
  * not hermeticity.
  */
 export const test = base.extend<VaultFixtures>({
-  catalogue: [
+  shitposts: [
     async ({ page }, use) => {
-      await use(await catalogueFake(page))
+      await use(await shitpostsFake(page))
     },
     { auto: true },
   ],

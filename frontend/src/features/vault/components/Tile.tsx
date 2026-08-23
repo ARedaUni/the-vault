@@ -1,5 +1,5 @@
-import { type Shitpost, mediaUrlFor } from '@/api/catalogue'
-import { mediaKindOf } from '@/domain/media-kind'
+import { type Shitpost, mediaUrlFor } from '@/api/shitposts'
+import { mediaKindOf } from '@/domain/mediaKind'
 
 const uploadedOn = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',

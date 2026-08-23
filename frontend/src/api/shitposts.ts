@@ -1,5 +1,5 @@
 import { config } from '../config'
-import { type Shitpost, shitpostsResponseSchema } from './catalogue.contract'
+import { type Shitpost, shitpostsResponseSchema } from './shitposts.contract'
 
 export type { Shitpost }
 
@@ -12,7 +12,7 @@ export const fetchShitposts = async (
   const response = await fetch(`${config.apiBaseUrl}/shitposts`, { signal })
 
   if (!response.ok) {
-    throw new Error(`The catalogue responded ${response.status}`)
+    throw new Error(`The shitposts API responded ${response.status}`)
   }
 
   return shitpostsResponseSchema.parse(await response.json()).shitposts

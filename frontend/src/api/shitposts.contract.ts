@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 /**
- * The catalogue's wire format, as *this consumer* needs it.
+ * The shitposts wire format, as *this consumer* needs it.
  *
  * Deliberately not imported from lambda/shared/domain: that is the backend's
  * internal model, and the frontend depends on the deployed HTTP response
@@ -19,7 +19,7 @@ const shitpostShape = {
 export const shitpostSchema = z.object(shitpostShape)
 
 /**
- * `nextCursor` is opaque and optional: opaque because only the catalogue knows
+ * `nextCursor` is opaque and optional: opaque because only the API knows
  * how it pages and this consumer must never parse one, optional because its
  * absence is how the last page announces itself.
  */
