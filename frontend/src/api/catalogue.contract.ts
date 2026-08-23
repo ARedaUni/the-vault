@@ -18,11 +18,21 @@ const shitpostShape = {
 /** Tolerant read: unknown keys are stripped, so a new field cannot break the UI. */
 export const shitpostSchema = z.object(shitpostShape)
 
-export const shitpostsResponseSchema = z.object({
+/**
+ * `nextCursor` is opaque and optional: opaque because only the catalogue knows
+ * how it pages and this consumer must never parse one, optional because its
+ * absence is how the last page announces itself.
+ */
+const pageShape = {
   shitposts: z.array(shitpostSchema),
-})
+  nextCursor: z.string().min(1).optional(),
+}
+
+export const shitpostsResponseSchema = z.object(pageShape)
 
 export type Shitpost = z.infer<typeof shitpostSchema>
+
+export type ShitpostPage = z.infer<typeof shitpostsResponseSchema>
 
 /**
  * Drift canary, for the contract spec only. Rejects unknown keys, so the API
@@ -30,5 +40,6 @@ export type Shitpost = z.infer<typeof shitpostSchema>
  * divergence between the two halves of the system.
  */
 export const exactShitpostsResponseSchema = z.strictObject({
+  ...pageShape,
   shitposts: z.array(z.strictObject(shitpostShape)),
 })

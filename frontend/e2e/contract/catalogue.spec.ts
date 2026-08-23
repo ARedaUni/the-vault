@@ -49,6 +49,50 @@ test.describe('contract', () => {
     expect(uploadTimes).toEqual([...uploadTimes].sort().reverse())
   })
 
+  test('hands back a cursor that fetches the next page', { tag: '@api' }, async ({
+    catalogue,
+  }) => {
+    const first = exactShitpostsResponseSchema.parse(
+      (await catalogue.listShitposts({ limit: 5 })).body,
+    )
+
+    expect(first.shitposts).toHaveLength(5)
+    expect(
+      first.nextCursor,
+      'the deployed catalogue is too small to page — capture a bigger fixture',
+    ).toBeDefined()
+
+    const second = exactShitpostsResponseSchema.parse(
+      (await catalogue.listShitposts({ limit: 5, cursor: first.nextCursor })).body,
+    )
+
+    // Overlap between pages would show the reader duplicate memes as it scrolls.
+    const keys = [...first.shitposts, ...second.shitposts].map((s) => s.shitpostKey)
+    expect(new Set(keys).size).toBe(keys.length)
+  })
+
+  test('walks the whole archive and stops', { tag: '@api' }, async ({ catalogue }) => {
+    // The API clamps limit at 100, so no single request can reach the last page
+    // however large a number is asked for — the walk is the only way to prove
+    // paging terminates rather than looping forever.
+    const seen: string[] = []
+    let cursor: string | undefined
+    let requests = 0
+
+    do {
+      const page = exactShitpostsResponseSchema.parse(
+        (await catalogue.listShitposts({ limit: 50, cursor })).body,
+      )
+      seen.push(...page.shitposts.map((shitpost) => shitpost.shitpostKey))
+      cursor = page.nextCursor
+      requests += 1
+      expect(requests, 'paging never exhausted the archive').toBeLessThan(50)
+    } while (cursor !== undefined)
+
+    expect(seen.length).toBeGreaterThan(100)
+    expect(new Set(seen).size, 'a shitpost appeared on two pages').toBe(seen.length)
+  })
+
   test(
     'still sends the fields the captured fixture was built from',
     { tag: '@api' },

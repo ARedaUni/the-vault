@@ -6,7 +6,7 @@ export type ApiResponse = {
 }
 
 export type CatalogueClient = {
-  listShitposts(): Promise<ApiResponse>
+  listShitposts(page?: { limit?: number; cursor?: string }): Promise<ApiResponse>
 }
 
 /**
@@ -16,8 +16,13 @@ export type CatalogueClient = {
 export const catalogueClient = (
   request: APIRequestContext,
 ): CatalogueClient => ({
-  async listShitposts(): Promise<ApiResponse> {
-    const response = await request.get('/api/shitposts')
+  async listShitposts(page = {}): Promise<ApiResponse> {
+    const response = await request.get('/api/shitposts', {
+      params: {
+        ...(page.limit === undefined ? {} : { limit: page.limit }),
+        ...(page.cursor === undefined ? {} : { cursor: page.cursor }),
+      },
+    })
     return { status: response.status(), body: await response.json() }
   },
 })
