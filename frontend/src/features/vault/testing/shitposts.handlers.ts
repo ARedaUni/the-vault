@@ -1,6 +1,6 @@
 import { HttpResponse, delay, http } from 'msw'
 import type { RequestHandler } from 'msw'
-import type { Shitpost } from '../shitposts.contract.js'
+import type { Shitpost } from '../api/shitposts.contract.js'
 import { pageOf } from './pageOf.js'
 import { capturedShitposts } from './shitposts.fixture.js'
 

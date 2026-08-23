@@ -1,4 +1,4 @@
-import { exactShitpostsResponseSchema } from '../../src/features/vault/shitposts.contract.js'
+import { exactShitpostsResponseSchema } from '../../src/features/vault/api/shitposts.contract.js'
 import { capturedShitposts } from '../../src/features/vault/testing/shitposts.fixture.js'
 import { expect, test } from '../support/contract/options.js'
 

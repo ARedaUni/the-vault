@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { type Shitpost, fetchShitposts } from './shitposts'
+import { type Shitpost, fetchShitposts } from './api/shitposts'
 
 export type ShitpostsState =
   | { status: 'loading' }

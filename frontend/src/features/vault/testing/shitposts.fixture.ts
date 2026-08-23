@@ -1,7 +1,7 @@
 import {
   type Shitpost,
   exactShitpostsResponseSchema,
-} from '../shitposts.contract.js'
+} from '../api/shitposts.contract.js'
 import captured from './shitposts.captured.js'
 
 /**

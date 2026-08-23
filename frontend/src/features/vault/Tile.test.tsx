@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { Tile } from './Tile'
-import type { Shitpost } from './shitposts.contract'
+import type { Shitpost } from './api/shitposts.contract'
 import { media } from './testing/shitposts.handlers'
 import { mswBrowserWorker } from '../../test/msw.browser.setup'
 

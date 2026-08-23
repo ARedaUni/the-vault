@@ -25,8 +25,9 @@ src/
 │   ├── Tile.tsx                one shitpost
 │   ├── useShitposts.ts         loading | ready | failed state machine
 │   ├── mediaKind.ts            image vs video, by extension
-│   ├── shitposts.contract.ts   the wire format, and the only place it is stated
-│   ├── shitposts.ts            fetch + media URL construction
+│   ├── api/                    the deploy boundary — what crosses the wire
+│   │   ├── shitposts.contract.ts   the wire format, and the only place it is stated
+│   │   └── shitposts.ts            fetch + media URL construction
 │   └── testing/                the feature's fake API, shared by every tier
 │       ├── shitposts.handlers.ts   MSW handlers — THE fake, there is no other
 │       ├── shitposts.captured.ts   captured from production, never hand-written
@@ -51,8 +52,12 @@ e2e/
 
 A folder is named after a thing a user could point at, never after a kind of
 code: `features/vault/`, one day `features/search/` — never `components/`,
-`patterns/` or `hooks/`. A piece earns a shared home (`src/components/`) at the
-moment a second feature actually imports it, not when reuse is predicted.
+`patterns/` or `hooks/`. Inside a feature, a subfolder marks a genuine seam,
+not a category: `api/` is the deploy boundary (this code deals in what the
+backend actually sends), `testing/` is the fake of it. The view, its state
+machine and its domain logic sit flat at the feature root. A piece earns a
+shared home (`src/components/`) at the moment a second feature actually
+imports it, not when reuse is predicted.
 Imports are relative; modules the Playwright project also loads carry a `.js`
 extension, resolved by node's rules rather than Vite's.
 
@@ -126,8 +131,8 @@ than admired.
 
 ## The API contract
 
-`src/features/vault/shitposts.contract.ts` states the wire format once, and
-derives two schemas from it:
+`src/features/vault/api/shitposts.contract.ts` states the wire format once,
+and derives two schemas from it:
 
 - **`shitpostsResponseSchema`** — tolerant, used by the app. Unknown keys are
   stripped, so the backend adding a field cannot break the browser.
