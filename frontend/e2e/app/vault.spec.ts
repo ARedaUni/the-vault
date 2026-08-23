@@ -1,9 +1,10 @@
 import { AxeBuilder } from '@axe-core/playwright'
-import { capturedShitposts } from '../support/app/shitposts.fake.js'
+import { capturedShitposts } from '../../src/features/vault/testing/shitposts.fixture.js'
 import { expect, test } from '../support/app/options.js'
 
 /**
- * The Vault, served by the shitposts fake. No network leaves the dev server.
+ * The Vault, served by the same MSW handlers the browser tier uses. No network
+ * leaves the dev server.
  *
  * This tier is representative, not exhaustive — see docs/testing-strategy.md.
  * Per-response behaviour (loading, failure, retry, empty, contract violation,

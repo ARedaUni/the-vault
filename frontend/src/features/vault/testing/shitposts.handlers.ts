@@ -1,8 +1,8 @@
 import { HttpResponse, delay, http } from 'msw'
 import type { RequestHandler } from 'msw'
-import type { Shitpost } from '@/api/shitposts.contract'
-import { pageOf } from './pageOf'
-import { capturedShitposts } from './shitposts.fixture'
+import type { Shitpost } from '../shitposts.contract.js'
+import { pageOf } from './pageOf.js'
+import { capturedShitposts } from './shitposts.fixture.js'
 
 /**
  * The shitposts port, faked at the network boundary.

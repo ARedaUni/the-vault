@@ -50,9 +50,19 @@ if (!Array.isArray(shitposts) || shitposts.length === 0) {
 }
 
 const captured = { shitposts: shitposts.slice(0, SAMPLE_SIZE) }
-const destination = path.join(frontend, 'src/test/fixtures/shitposts.json')
+const destination = path.join(
+  frontend,
+  'src/features/vault/testing/shitposts.captured.ts',
+)
 
-writeFileSync(destination, `${JSON.stringify(captured, null, 2)}\n`)
+// A TS module rather than raw JSON so every runtime that serves the fixture —
+// Vite, Vitest and Playwright's node process — imports it the same way.
+writeFileSync(
+  destination,
+  '// Captured from the deployed API by scripts/capture-shitposts-fixture.mjs — do not edit.\n' +
+    '// Refresh with `npm run fixture:capture`.\n' +
+    `export default ${JSON.stringify(captured, null, 2)}\n`,
+)
 
 console.log(
   `Captured ${captured.shitposts.length} of ${shitposts.length} shitposts from ${origin}`,

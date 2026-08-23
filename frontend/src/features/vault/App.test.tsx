@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from './App'
-import { capturedShitposts, manyShitposts } from '@/test/shitposts.fixture'
-import { shitposts, healthyShitposts, media } from '@/test/shitposts.handlers'
-import { mswBrowserWorker } from '@/test/msw.browser.setup'
+import { capturedShitposts, manyShitposts } from './testing/shitposts.fixture'
+import { shitposts, healthyShitposts, media } from './testing/shitposts.handlers'
+import { mswBrowserWorker } from '../../test/msw.browser.setup'
 
 /**
  * The Vault's behaviour, one API response at a time.

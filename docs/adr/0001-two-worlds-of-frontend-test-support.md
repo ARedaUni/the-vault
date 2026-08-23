@@ -39,7 +39,7 @@ e2e/
   app/       vault.spec.ts
   contract/  shitposts.spec.ts
   support/
-    app/       options.ts, shitposts.fake.ts, vault.page.ts
+    app/       options.ts, network.ts, vault.page.ts
     contract/  options.ts, shitposts.client.ts
 ```
 
@@ -54,11 +54,11 @@ The import line now names the world: `../support/app/options.js` versus
 `../support/contract/options.js`. A spec in the wrong world is visible in a
 diff rather than discoverable only by reading fixture definitions.
 
-Hermeticity stays enforced by code, not convention. `support/app/shitposts.fake.ts`
-registers an abort route for every non-localhost request and installs itself as
-an `auto` fixture, so an app spec cannot reach AWS even if it forgets to ask for
-the fake. The directory split makes that guarantee legible; it does not replace
-it.
+Hermeticity stays enforced by code, not convention. `support/app/network.ts`
+aborts every request that would leave the dev server and installs the app's MSW
+handlers as an `auto` fixture, so an app spec cannot reach AWS even if it
+forgets to ask for the fake. The directory split makes that guarantee legible;
+it does not replace it.
 
 Adding a third world — visual regression, a second deployed environment — means
 adding a directory, not renaming files to keep prefixes unambiguous.

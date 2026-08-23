@@ -1,5 +1,5 @@
-import { useShitposts } from '@/hooks/useShitposts'
-import { Tile } from '../components/Tile'
+import { useShitposts } from './useShitposts'
+import { Tile } from './Tile'
 
 const countLabel = (total: number): string =>
   `${total} ${total === 1 ? 'shitpost' : 'shitposts'}`

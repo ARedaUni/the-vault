@@ -9,20 +9,17 @@
     "preview": "vite preview",
     "lint": "oxlint",
     "typecheck": "tsc -b",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build",
     "test": "playwright test",
     "test:unit": "vitest run --project unit",
     "test:unit:watch": "vitest --project unit",
     "test:browser": "vitest run --project browser",
     "test:browser:watch": "vitest --project browser",
-    "test:stories": "vitest run --project storybook",
     "test:smoke": "playwright test --grep @smoke",
     "test:contract": "playwright test --config playwright.contract.config.ts",
     "fixture:capture": "node scripts/capture-shitposts-fixture.mjs",
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
-    "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run test:browser && npm run test:stories && npm test"
+    "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run test:browser && npm test"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -32,8 +29,6 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.62.1",
-    "@storybook/addon-vitest": "^10.5.8",
-    "@storybook/react-vite": "^10.5.8",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
@@ -43,7 +38,6 @@
     "msw": "^2.15.0",
     "oxlint": "^1.75.0",
     "playwright": "^1.62.1",
-    "storybook": "^10.5.8",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
     "vitest": "^4.1.10",

@@ -1,4 +1,6 @@
-{
+// Captured from the deployed API by scripts/capture-shitposts-fixture.mjs — do not edit.
+// Refresh with `npm run fixture:capture`.
+export default {
   "shitposts": [
     {
       "shitpostKey": "media/reddit/1vljf6p.png",

@@ -1,10 +1,11 @@
 import { test as base, expect } from '@playwright/test'
-import { type ShitpostsFake, shitpostsFake } from './shitposts.fake.js'
+import { healthyShitposts } from '../../../src/features/vault/testing/shitposts.handlers.js'
+import { routeThroughHandlers } from './network.js'
 import { VaultPage } from './vault.page.js'
 
 type VaultFixtures = {
   vaultPage: VaultPage
-  shitposts: ShitpostsFake
+  network: void
 }
 
 /**
@@ -12,14 +13,15 @@ type VaultFixtures = {
  * `expect` from here and never from '@playwright/test' directly — page objects
  * are injected, never constructed in a test body.
  *
- * The shitposts fake is `auto`, so it installs for every test whether or not
- * the test names it. Hermeticity that depends on remembering to ask for it is
- * not hermeticity.
+ * The network fixture is `auto`, so the MSW handlers answer every test whether
+ * or not the test names it. Hermeticity that depends on remembering to ask for
+ * it is not hermeticity.
  */
 export const test = base.extend<VaultFixtures>({
-  shitposts: [
+  network: [
     async ({ page }, use) => {
-      await use(await shitpostsFake(page))
+      await routeThroughHandlers(page, healthyShitposts())
+      await use()
     },
     { auto: true },
   ],

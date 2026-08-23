@@ -8,7 +8,7 @@ machine.
 cp .env.example .env  # once, after cloning
 
 npm run dev           # http://localhost:5173, hot reload, proxied to real AWS
-npm run verify        # lint + typecheck + unit + stories + hermetic e2e
+npm run verify        # lint + typecheck + unit + browser + hermetic e2e
 npm run test:smoke    # the fast subset
 npm run test:ui       # Playwright's watch-mode UI
 
@@ -20,15 +20,19 @@ npm run fixture:capture  # refresh the captured shitposts from the live API
 
 ```
 src/
-├── api/
+├── features/vault/             everything the vault is — one folder per feature
+│   ├── App.tsx                 the gallery page
+│   ├── Tile.tsx                one shitpost
+│   ├── useShitposts.ts         loading | ready | failed state machine
+│   ├── mediaKind.ts            image vs video, by extension
 │   ├── shitposts.contract.ts   the wire format, and the only place it is stated
-│   └── shitposts.ts            fetch + media URL construction
-├── domain/mediaKind.ts          image vs video, by extension
-├── features/vault/             UI, sliced by feature
-│   ├── components/Tile.tsx
-│   └── layout/App.tsx
-├── hooks/useShitposts.ts        loading | ready | failed state machine
-├── test/fixtures/shitposts.json  captured from production, never hand-written
+│   ├── shitposts.ts            fetch + media URL construction
+│   └── testing/                the feature's fake API, shared by every tier
+│       ├── shitposts.handlers.ts   MSW handlers — THE fake, there is no other
+│       ├── shitposts.captured.ts   captured from production, never hand-written
+│       ├── shitposts.fixture.ts    strict-parses the capture at load
+│       └── pageOf.ts               how the fake pages
+├── test/                       cross-cutting harness: MSW worker, global CSS
 ├── config.ts                   zod-parsed environment
 └── main.tsx
 
@@ -37,18 +41,20 @@ e2e/
 ├── contract/shitposts.spec.ts  the deployed API. Live.
 └── support/                    mirrors the split above — one folder per world
     ├── app/
-    │   ├── options.ts          app fixtures — installs the fake automatically
-    │   ├── shitposts.fake.ts   the shitposts port, faked at the HTTP boundary
+    │   ├── options.ts          app fixtures — installs the handlers automatically
+    │   ├── network.ts          drives the MSW handlers through page.route
     │   └── vault.page.ts       locators and actions
     └── contract/
         ├── options.ts          contract fixtures — no stubs, real HTTP
         └── shitposts.client.ts typed API calls, contract suite only
 ```
 
-UI lives under `features/<domain>/` with `components/` for single-purpose
-elements, `patterns/` for compositions spanning several, and `layout/` for page
-containers. Imports crossing out of a feature use the `@/` alias; inside one
-they stay relative, so the folder tells you where the seam is.
+A folder is named after a thing a user could point at, never after a kind of
+code: `features/vault/`, one day `features/search/` — never `components/`,
+`patterns/` or `hooks/`. A piece earns a shared home (`src/components/`) at the
+moment a second feature actually imports it, not when reuse is predicted.
+Imports are relative; modules the Playwright project also loads carry a `.js`
+extension, resolved by node's rules rather than Vite's.
 
 One spec file per user-facing feature, with `describe` blocks inside for the
 different concerns. When the delete control, feed tab and search bar land they
@@ -92,15 +98,16 @@ correct?" and "is production healthy?" — and gives you one bit to tell them
 apart. When it goes red you cannot know which broke, so eventually you stop
 looking. The suites are split so each answers exactly one question.
 
-**`e2e/app/` — is this frontend correct?** Every request is answered by
-`shitposts.fake.ts`. It is a hand-written fake, not a mock: it implements the
-API's HTTP contract, and for an app under test in a real browser HTTP
-*is* the port — there is no module graph to inject into, so `page.route` is
-where the fake plugs in. A catch-all route aborts anything addressed outside
-the dev server, which is what makes "hermetic" a property rather than a hope.
-Media is served too, and any key the API does not advertise gets a 404, so a
-broken `mediaUrlFor` surfaces as a missing image instead of passing because a
-blanket stub answered everything.
+**`e2e/app/` — is this frontend correct?** Every request is answered by the
+same MSW handlers the browser tier uses, driven through `page.route` by
+`support/app/network.ts` — one definition of the fake API, two ways of
+installing it. The handlers are a hand-written fake, not a mock: they implement
+the API's HTTP contract, and for an app under test in a real browser HTTP *is*
+the port. The catch-all route aborts anything addressed outside the dev server,
+which is what makes "hermetic" a property rather than a hope. Media is served
+too, and any key the API does not advertise gets a 404, so a broken
+`mediaUrlFor` surfaces as a missing image instead of passing because a blanket
+stub answered everything.
 
 **`e2e/contract/` — has the deployed API moved?** The one question a fake can
 never answer, so these specs talk to real AWS on purpose and stay out of CI. A
@@ -119,7 +126,7 @@ than admired.
 
 ## The API contract
 
-`src/api/shitposts.contract.ts` states the wire format once, and
+`src/features/vault/shitposts.contract.ts` states the wire format once, and
 derives two schemas from it:
 
 - **`shitpostsResponseSchema`** — tolerant, used by the app. Unknown keys are

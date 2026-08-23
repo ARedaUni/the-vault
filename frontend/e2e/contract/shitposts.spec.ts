@@ -1,10 +1,6 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { exactShitpostsResponseSchema } from '../../src/api/shitposts.contract.js'
+import { exactShitpostsResponseSchema } from '../../src/features/vault/shitposts.contract.js'
+import { capturedShitposts } from '../../src/features/vault/testing/shitposts.fixture.js'
 import { expect, test } from '../support/contract/options.js'
-
-const here = path.dirname(fileURLToPath(import.meta.url))
 
 /**
  * The drift canary. Talks to real AWS, and is therefore NOT part of CI.
@@ -17,13 +13,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
  *   npm run test:contract
  */
 
-const capturedKeys = Object.keys(
-  exactShitpostsResponseSchema.parse(
-    JSON.parse(
-      readFileSync(path.join(here, '../../src/test/fixtures/shitposts.json'), 'utf8'),
-    ),
-  ).shitposts[0] ?? {},
-).sort()
+const capturedKeys = Object.keys(capturedShitposts[0] ?? {}).sort()
 
 test.describe('contract', () => {
   test(

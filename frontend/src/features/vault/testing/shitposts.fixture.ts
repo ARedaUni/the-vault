@@ -1,8 +1,8 @@
 import {
   type Shitpost,
   exactShitpostsResponseSchema,
-} from '@/api/shitposts.contract'
-import captured from './fixtures/shitposts.json'
+} from '../shitposts.contract.js'
+import captured from './shitposts.captured.js'
 
 /**
  * The captured shitposts, shared by every hermetic tier.

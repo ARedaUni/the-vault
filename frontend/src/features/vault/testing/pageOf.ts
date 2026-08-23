@@ -1,6 +1,6 @@
-// Relative, not `@/`: this module is imported from the Playwright project too,
-// which resolves without Vite's alias.
-import type { Shitpost, ShitpostPage } from '../api/shitposts.contract.js'
+// The `.js` extension matters: this module is imported from the Playwright
+// project too, which resolves with node's rules rather than Vite's.
+import type { Shitpost, ShitpostPage } from '../shitposts.contract.js'
 
 /**
  * How both fakes page: the MSW handlers used by the browser tier, and the
