@@ -349,10 +349,17 @@ export class SignalStack extends cdk.Stack {
       authorizer: vaultKeeperAuthorizer,
     });
 
-    // DELETE /shitposts/{shitpostKey+} is withdrawn for exactly one deploy:
-    // CloudFormation creates a replacement route before it deletes the old
-    // one, and API Gateway refuses {shitpostKey} and {shitpostKey+} side by
-    // side. The next commit puts the greedy route back.
+    // Public for now: the vault has no login yet, so a JWT here would leave
+    // the gallery's Delete button dead. Move behind vaultKeeperAuthorizer
+    // the moment the frontend can obtain a token.
+    //
+    // Greedy parameter: the gateway decodes %2F before routing, so a key with
+    // slashes in it spans several segments. {shitpostKey} matched none of them.
+    const [deleteRoute] = catalogueApi.addRoutes({
+      path: '/shitposts/{shitpostKey+}',
+      methods: [apigwv2.HttpMethod.DELETE],
+      integration: catalogueIntegration,
+    });
 
     const [feedRoute] = catalogueApi.addRoutes({
       path: '/feed',
@@ -574,6 +581,14 @@ export class SignalStack extends cdk.Stack {
         id: 'AwsSolutions-APIG4',
         reason:
           'GET /feed is public alongside GET /shitposts until the login UI lands (ledger); it exposes ranking order only, and all writes require a Cognito JWT.',
+      },
+    ]);
+
+    NagSuppressions.addResourceSuppressions(deleteRoute, [
+      {
+        id: 'AwsSolutions-APIG4',
+        reason:
+          'DELETE /shitposts/{key} is public until the login UI lands (ledger), so the gallery\'s Delete button works. It tombstones a row rather than destroying media, the catalogue is a single-user archive, and the row can be restored. Moves behind the Cognito JWT with the login.',
       },
     ]);
 
