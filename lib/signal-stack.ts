@@ -352,8 +352,11 @@ export class SignalStack extends cdk.Stack {
     // Public for now: the vault has no login yet, so a JWT here would leave
     // the gallery's Delete button dead. Move behind vaultKeeperAuthorizer
     // the moment the frontend can obtain a token.
+    //
+    // Greedy parameter: the gateway decodes %2F before routing, so a key with
+    // slashes in it spans several segments. {shitpostKey} matched none of them.
     const [deleteRoute] = catalogueApi.addRoutes({
-      path: '/shitposts/{shitpostKey}',
+      path: '/shitposts/{shitpostKey+}',
       methods: [apigwv2.HttpMethod.DELETE],
       integration: catalogueIntegration,
     });

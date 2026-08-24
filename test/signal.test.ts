@@ -364,11 +364,14 @@ test('GET /feed routes to the catalogue Lambda and stays public like the gallery
   });
 });
 
-test('DELETE /shitposts/{shitpostKey} routes to the catalogue Lambda and is public until the vault has a login', () => {
+test('DELETE /shitposts/{shitpostKey+} takes a key with slashes in it, and is public until the vault has a login', () => {
+  // Greedy on purpose: API Gateway decodes %2F before it routes, so a key
+  // such as media/reddit/x.png spans three segments. A plain {shitpostKey}
+  // matched nothing and the gateway answered its own 404 for every real key.
   const template = synthesize();
 
   template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
-    RouteKey: 'DELETE /shitposts/{shitpostKey}',
+    RouteKey: 'DELETE /shitposts/{shitpostKey+}',
     AuthorizationType: 'NONE',
   });
 });
