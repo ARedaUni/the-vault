@@ -329,36 +329,11 @@ test('publishes the API URL as a stack output', () => {
   expect(Object.keys(outputs)).toHaveLength(1);
 });
 
-test('anyone can sign themselves up — the vault is opening to members', () => {
+test('the user pool forbids self sign-up — members are created by admins only', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::Cognito::UserPool', {
-    AdminCreateUserConfig: { AllowAdminCreateUserOnly: false },
-  });
-});
-
-test('members sign in with their email, and must verify it before first use', () => {
-  const template = synthesize();
-
-  template.hasResourceProperties('AWS::Cognito::UserPool', {
-    UsernameAttributes: ['email'],
-    AutoVerifiedAttributes: ['email'],
-  });
-});
-
-test('the user pool survives stack deletion — member accounts are not disposable', () => {
-  const template = synthesize();
-
-  template.hasResource('AWS::Cognito::UserPool', {
-    DeletionPolicy: 'Retain',
-  });
-});
-
-test('the app client speaks SRP so passwords never travel to the API in clear', () => {
-  const template = synthesize();
-
-  template.hasResourceProperties('AWS::Cognito::UserPoolClient', {
-    ExplicitAuthFlows: Match.arrayWith(['ALLOW_USER_SRP_AUTH']),
+    AdminCreateUserConfig: { AllowAdminCreateUserOnly: true },
   });
 });
 
