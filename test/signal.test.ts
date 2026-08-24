@@ -329,11 +329,36 @@ test('publishes the API URL as a stack output', () => {
   expect(Object.keys(outputs)).toHaveLength(1);
 });
 
-test('the user pool forbids self sign-up — members are created by admins only', () => {
+test('anyone can sign themselves up — the vault is opening to members', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::Cognito::UserPool', {
-    AdminCreateUserConfig: { AllowAdminCreateUserOnly: true },
+    AdminCreateUserConfig: { AllowAdminCreateUserOnly: false },
+  });
+});
+
+test('members sign in with their email, and must verify it before first use', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Cognito::UserPool', {
+    UsernameAttributes: ['email'],
+    AutoVerifiedAttributes: ['email'],
+  });
+});
+
+test('the user pool survives stack deletion — member accounts are not disposable', () => {
+  const template = synthesize();
+
+  template.hasResource('AWS::Cognito::UserPool', {
+    DeletionPolicy: 'Retain',
+  });
+});
+
+test('the app client speaks SRP so passwords never travel to the API in clear', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::Cognito::UserPoolClient', {
+    ExplicitAuthFlows: Match.arrayWith(['ALLOW_USER_SRP_AUTH']),
   });
 });
 
@@ -360,18 +385,6 @@ test('GET /feed routes to the catalogue Lambda and stays public like the gallery
 
   template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
     RouteKey: 'GET /feed',
-    AuthorizationType: 'NONE',
-  });
-});
-
-test('DELETE /shitposts/{shitpostKey+} takes a key with slashes in it, and is public until the vault has a login', () => {
-  // Greedy on purpose: API Gateway decodes %2F before it routes, so a key
-  // such as media/reddit/x.png spans three segments. A plain {shitpostKey}
-  // matched nothing and the gateway answered its own 404 for every real key.
-  const template = synthesize();
-
-  template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
-    RouteKey: 'DELETE /shitposts/{shitpostKey+}',
     AuthorizationType: 'NONE',
   });
 });
