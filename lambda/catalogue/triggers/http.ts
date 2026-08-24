@@ -8,12 +8,14 @@ import { addShitpost } from '../usecases/add-shitpost';
 import { listShitposts } from '../usecases/list-shitposts';
 import { rankFeed } from '../usecases/rank-feed';
 import { recordSignal } from '../usecases/record-signal';
+import { removeShitpost } from '../usecases/remove-shitpost';
 
 export type CatalogueEvent = {
   requestContext: { requestId?: string; http: { method: string } };
   rawPath?: string;
   body?: string;
   queryStringParameters?: Record<string, string | undefined>;
+  pathParameters?: Record<string, string | undefined>;
 };
 
 export type CanonicalRequestEvent = {
@@ -49,6 +51,8 @@ const json = (
   body: JSON.stringify(body),
 });
 
+const noContent = (): APIGatewayProxyStructuredResultV2 => ({ statusCode: 204 });
+
 const parseJson = (body?: string): unknown => {
   try {
     return JSON.parse(body ?? '');
@@ -77,6 +81,26 @@ const postSignal = async (
     return json(404, { error: 'unknown shitpost' });
   }
   return json(201, { signal });
+};
+
+const deleteShitpost = async (
+  ports: CataloguePorts,
+  event: CatalogueEvent,
+  now: () => number,
+): Promise<APIGatewayProxyStructuredResultV2> => {
+  const shitpostKey = event.pathParameters?.shitpostKey;
+  if (!shitpostKey) {
+    return json(404, { error: 'unknown shitpost' });
+  }
+
+  const outcome = await removeShitpost({
+    shitposts: ports.shitposts,
+    shitpostKey,
+    deletedAt: new Date(now()).toISOString(),
+  });
+  return outcome === 'removed'
+    ? noContent()
+    : json(404, { error: 'unknown shitpost' });
 };
 
 const getFeed = async (
@@ -109,6 +133,10 @@ const dispatch = async (
 
     if (method === 'POST' && event.rawPath === '/signals') {
       return { response: await postSignal(ports, event, now) };
+    }
+
+    if (method === 'DELETE') {
+      return { response: await deleteShitpost(ports, event, now) };
     }
 
     if (method === 'GET' && event.rawPath === '/feed') {

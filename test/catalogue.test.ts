@@ -36,6 +36,13 @@ const aPostRequest = (body: unknown): CatalogueEvent =>
     body: JSON.stringify(body),
   });
 
+const aDeleteRequest = (shitpostKey: string): CatalogueEvent =>
+  aRequest({
+    rawPath: `/shitposts/${encodeURIComponent(shitpostKey)}`,
+    pathParameters: { shitpostKey },
+    requestContext: { http: { method: 'DELETE' } },
+  });
+
 const shitpostRepositoryContract = (
   implementation: string,
   makeRepository: (seed: readonly Shitpost[]) => ShitpostRepository,
@@ -799,4 +806,48 @@ test('GET /shitposts responds 500 without leaking internals when the catalogue i
   expect(JSON.parse(response.body ?? '')).toEqual({
     error: 'catalogue unavailable',
   });
+});
+
+test('DELETE /shitposts/{key} tombstones the shitpost at the request time and answers 204 with no body', async () => {
+  const repository = inMemoryRepository([
+    aShitpost({ shitpostKey: 'media/reddit/regret.png' }),
+  ]);
+  const handler = aCatalogueHandler(
+    { shitposts: repository },
+    { now: () => Date.UTC(2026, 7, 24, 9, 0, 0) },
+  );
+
+  const response = await handler(aDeleteRequest('media/reddit/regret.png'));
+
+  expect(response.statusCode).toBe(204);
+  expect(response.body).toBeUndefined();
+  await expect(repository.getByKey('media/reddit/regret.png')).resolves.toEqual(
+    expect.objectContaining({ deletedAt: '2026-08-24T09:00:00.000Z' }),
+  );
+});
+
+test('DELETE /shitposts/{key} answers 404 for a shitpost the catalogue never held', async () => {
+  const handler = aCatalogueHandler({ shitposts: inMemoryRepository([]) });
+
+  const response = await handler(aDeleteRequest('media/never-uploaded.png'));
+
+  expect(response.statusCode).toBe(404);
+  expect(JSON.parse(response.body ?? '')).toEqual({ error: 'unknown shitpost' });
+});
+
+test('DELETE /shitposts/{key} answers 404 for a shitpost already deleted, and leaves the original tombstone alone', async () => {
+  const repository = inMemoryRepository([
+    aShitpost({ shitpostKey: 'media/regret.png', deletedAt: '2026-08-18T09:00:00.000Z' }),
+  ]);
+  const handler = aCatalogueHandler(
+    { shitposts: repository },
+    { now: () => Date.UTC(2026, 7, 24, 9, 0, 0) },
+  );
+
+  const response = await handler(aDeleteRequest('media/regret.png'));
+
+  expect(response.statusCode).toBe(404);
+  await expect(repository.getByKey('media/regret.png')).resolves.toEqual(
+    expect.objectContaining({ deletedAt: '2026-08-18T09:00:00.000Z' }),
+  );
 });

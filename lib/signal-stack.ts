@@ -294,7 +294,11 @@ export class SignalStack extends cdk.Stack {
     const catalogueApi = new apigwv2.HttpApi(this, 'CatalogueApi', {
       corsPreflight: {
         allowOrigins: [`https://${gallery.distributionDomainName}`],
-        allowMethods: [apigwv2.CorsHttpMethod.GET, apigwv2.CorsHttpMethod.POST],
+        allowMethods: [
+          apigwv2.CorsHttpMethod.GET,
+          apigwv2.CorsHttpMethod.POST,
+          apigwv2.CorsHttpMethod.DELETE,
+        ],
       },
     });
 
@@ -343,6 +347,15 @@ export class SignalStack extends cdk.Stack {
       methods: [apigwv2.HttpMethod.POST],
       integration: catalogueIntegration,
       authorizer: vaultKeeperAuthorizer,
+    });
+
+    // Public for now: the vault has no login yet, so a JWT here would leave
+    // the gallery's Delete button dead. Move behind vaultKeeperAuthorizer
+    // the moment the frontend can obtain a token.
+    const [deleteRoute] = catalogueApi.addRoutes({
+      path: '/shitposts/{shitpostKey}',
+      methods: [apigwv2.HttpMethod.DELETE],
+      integration: catalogueIntegration,
     });
 
     const [feedRoute] = catalogueApi.addRoutes({
@@ -565,6 +578,14 @@ export class SignalStack extends cdk.Stack {
         id: 'AwsSolutions-APIG4',
         reason:
           'GET /feed is public alongside GET /shitposts until the login UI lands (ledger); it exposes ranking order only, and all writes require a Cognito JWT.',
+      },
+    ]);
+
+    NagSuppressions.addResourceSuppressions(deleteRoute, [
+      {
+        id: 'AwsSolutions-APIG4',
+        reason:
+          'DELETE /shitposts/{key} is public until the login UI lands (ledger), so the gallery\'s Delete button works. It tombstones a row rather than destroying media, the catalogue is a single-user archive, and the row can be restored. Moves behind the Cognito JWT with the login.',
       },
     ]);
 

@@ -235,12 +235,12 @@ test('the API routes POST /shitposts to a Lambda integration', () => {
   });
 });
 
-test('API CORS permits only GET and POST, from a single allowed origin', () => {
+test('API CORS permits only GET, POST and DELETE, from a single allowed origin', () => {
   const template = synthesize();
 
   template.hasResourceProperties('AWS::ApiGatewayV2::Api', {
     CorsConfiguration: {
-      AllowMethods: ['GET', 'POST'],
+      AllowMethods: ['GET', 'POST', 'DELETE'],
       AllowOrigins: [Match.anyValue()],
     },
   });
@@ -360,6 +360,15 @@ test('GET /feed routes to the catalogue Lambda and stays public like the gallery
 
   template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
     RouteKey: 'GET /feed',
+    AuthorizationType: 'NONE',
+  });
+});
+
+test('DELETE /shitposts/{shitpostKey} routes to the catalogue Lambda and is public until the vault has a login', () => {
+  const template = synthesize();
+
+  template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+    RouteKey: 'DELETE /shitposts/{shitpostKey}',
     AuthorizationType: 'NONE',
   });
 });
