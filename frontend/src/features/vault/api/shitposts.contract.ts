@@ -43,3 +43,15 @@ export const exactShitpostsResponseSchema = z.strictObject({
   ...pageShape,
   shitposts: z.array(z.strictObject(shitpostShape)),
 })
+
+/**
+ * Where a single shitpost lives, for DELETE. The key holds slashes, so it is
+ * encoded as one path segment; the API answers 204 with no body, and 404 for
+ * a key it does not hold. Shared by the client, the fake and the contract
+ * spec so the three cannot disagree about the route.
+ */
+export const shitpostPath = (shitpostKey: string): string =>
+  `/shitposts/${encodeURIComponent(shitpostKey)}`
+
+export const shitpostKeyFromPath = (pathname: string): string =>
+  decodeURIComponent(pathname.slice(pathname.lastIndexOf('/') + 1))

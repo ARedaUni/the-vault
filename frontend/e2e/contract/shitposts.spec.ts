@@ -98,4 +98,25 @@ test.describe('contract', () => {
       expect(Object.keys(live ?? {}).sort()).toEqual(capturedKeys)
     },
   )
+
+  test(
+    'refuses to delete a shitpost it does not hold',
+    { tag: '@api' },
+    async ({ shitposts }) => {
+      // The only deletion this spec can afford to make: one that changes
+      // nothing. It still proves the route exists, takes an encoded key as one
+      // segment, and answers 404 rather than 204 for a key it never held —
+      // which is what the app's fake promises in `shitposts.deletes`.
+      //
+      // The body matters: API Gateway 404s any route it has never heard of,
+      // so the status alone would pass against a backend with no DELETE at
+      // all. Only the catalogue says "unknown shitpost".
+      const { status, body } = await shitposts.deleteShitpost(
+        'media/contract/never-uploaded.png',
+      )
+
+      expect(status).toBe(404)
+      expect(JSON.parse(String(body))).toEqual({ error: 'unknown shitpost' })
+    },
+  )
 })

@@ -105,6 +105,23 @@ h1 {
   list-style: none;
 }
 
+.tile .delete {
+  align-self: flex-start;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--ink-muted);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.tile .delete:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
 .tags li {
   padding: 0.1rem 0.45rem;
   border-radius: 999px;

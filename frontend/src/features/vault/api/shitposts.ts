@@ -2,6 +2,7 @@ import { config } from '../../../config'
 import {
   type Shitpost,
   type ShitpostPage,
+  shitpostPath,
   shitpostsResponseSchema,
 } from './shitposts.contract'
 
@@ -32,4 +33,15 @@ export const fetchShitposts = async (
   }
 
   return shitpostsResponseSchema.parse(await response.json())
+}
+
+/** Deletes one shitpost. Resolves on 204; anything else is an error. */
+export const deleteShitpost = async (shitpostKey: string): Promise<void> => {
+  const response = await fetch(`${config.apiBaseUrl}${shitpostPath(shitpostKey)}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    throw new Error(`The shitposts API responded ${response.status}`)
+  }
 }

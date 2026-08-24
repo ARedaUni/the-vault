@@ -1,15 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { type Shitpost, fetchShitposts } from './api/shitposts'
+import { type Shitpost, deleteShitpost, fetchShitposts } from './api/shitposts'
 
 export type ShitpostsState =
   | { status: 'loading' }
-  | { status: 'ready'; shitposts: readonly Shitpost[]; hasMore: boolean }
+  | {
+      status: 'ready'
+      shitposts: readonly Shitpost[]
+      hasMore: boolean
+      /** A deletion the API refused. The gallery stays; only the message is new. */
+      problem?: string
+    }
   | { status: 'failed'; message: string }
 
 export type UseShitposts = {
   state: ShitpostsState
   retry: () => void
   loadMore: () => void
+  remove: (shitpostKey: string) => void
 }
 
 const messageFrom = (error: unknown): string =>
@@ -76,5 +83,28 @@ export const useShitposts = (): UseShitposts => {
       })
   }, [])
 
-  return { state, retry, loadMore }
+  const remove = useCallback((shitpostKey: string) => {
+    deleteShitpost(shitpostKey)
+      .then(() => {
+        setState((previous) =>
+          previous.status === 'ready'
+            ? {
+                ...previous,
+                shitposts: previous.shitposts.filter(
+                  (shitpost) => shitpost.shitpostKey !== shitpostKey,
+                ),
+              }
+            : previous,
+        )
+      })
+      .catch((error: unknown) => {
+        setState((previous) =>
+          previous.status === 'ready'
+            ? { ...previous, problem: messageFrom(error) }
+            : previous,
+        )
+      })
+  }, [])
+
+  return { state, retry, loadMore, remove }
 }

@@ -1,6 +1,9 @@
 import { HttpResponse, delay, http } from 'msw'
 import type { RequestHandler } from 'msw'
-import type { Shitpost } from '../api/shitposts.contract.js'
+import {
+  type Shitpost,
+  shitpostKeyFromPath,
+} from '../api/shitposts.contract.js'
 import { pageOf } from './pageOf.js'
 import { capturedShitposts } from './shitposts.fixture.js'
 
@@ -15,6 +18,7 @@ import { capturedShitposts } from './shitposts.fixture.js'
  */
 
 const SHITPOSTS = '/api/shitposts'
+const ONE_SHITPOST = '/api/shitposts/*'
 
 /** A real, decodable 1x1 PNG — enough for naturalWidth to be non-zero. */
 const PIXEL_BASE64 =
@@ -42,6 +46,26 @@ export const shitposts = {
   breaksContract: (): RequestHandler =>
     http.get(SHITPOSTS, () =>
       HttpResponse.json({ shitposts: [{ shitpostKey: 42 }] }),
+    ),
+
+  /**
+   * Honour a DELETE for any key the API holds and 404 the rest, so an app that
+   * sent the wrong key fails here rather than passing against a blanket 204.
+   */
+  deletes: (all: readonly Shitpost[] = capturedShitposts): RequestHandler => {
+    const keys = new Set(all.map((shitpost) => shitpost.shitpostKey))
+
+    return http.delete(ONE_SHITPOST, ({ request }) =>
+      keys.has(shitpostKeyFromPath(new URL(request.url).pathname))
+        ? new HttpResponse(null, { status: 204 })
+        : HttpResponse.json({ error: 'unknown shitpost' }, { status: 404 }),
+    )
+  },
+
+  /** Refuse every DELETE with an HTTP error. */
+  refusesToDelete: (status: number): RequestHandler =>
+    http.delete(ONE_SHITPOST, () =>
+      HttpResponse.json({ error: 'catalogue unavailable' }, { status }),
     ),
 
   /** Hold every shitposts request open for `ms` before answering. */
@@ -75,8 +99,9 @@ export const media = (
   })
 }
 
-/** An API that answers normally and serves the media it advertises. */
+/** An API that answers normally, serves the media it advertises and honours deletions. */
 export const healthyShitposts = (): readonly RequestHandler[] => [
   shitposts.serves(),
+  shitposts.deletes(),
   media(),
 ]

@@ -37,7 +37,13 @@ const Media = ({ shitpostKey, tags }: Shitpost) => {
   )
 }
 
-export const Tile = ({ shitpost }: { shitpost: Shitpost }) => (
+export const Tile = ({
+  shitpost,
+  onDelete,
+}: {
+  shitpost: Shitpost
+  onDelete: () => void
+}) => (
   <li className="tile">
     <figure>
       <Media {...shitpost} />
@@ -52,6 +58,14 @@ export const Tile = ({ shitpost }: { shitpost: Shitpost }) => (
             ))}
           </ul>
         )}
+        <button
+          type="button"
+          className="delete"
+          aria-label={`Delete ${describe(shitpost.tags).toLowerCase()}`}
+          onClick={onDelete}
+        >
+          Delete
+        </button>
       </figcaption>
     </figure>
   </li>

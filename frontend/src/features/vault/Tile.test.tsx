@@ -15,7 +15,7 @@ const renderTile = async (shitpost: Shitpost) => {
   mswBrowserWorker.use(media([shitpost]))
   return render(
     <ul aria-label="Shitposts" className="grid">
-      <Tile shitpost={shitpost} />
+      <Tile shitpost={shitpost} onDelete={() => {}} />
     </ul>,
   )
 }

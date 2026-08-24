@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from './App'
+import { mediaUrlFor } from './api/shitposts'
 import { capturedShitposts, manyShitposts } from './testing/shitposts.fixture'
 import { shitposts, healthyShitposts, media } from './testing/shitposts.handlers'
 import { mswBrowserWorker } from '../../test/msw.browser.setup'
@@ -149,5 +150,48 @@ describe('the API is slow, empty or broken', () => {
     const screen = await render(<App />)
 
     await expect.element(screen.getByRole('alert')).toBeInTheDocument()
+  })
+})
+
+describe('deleting a shitpost', () => {
+  it('removes the tile once the API confirms the deletion', async () => {
+    mswBrowserWorker.use(...healthyShitposts())
+    const doomed = capturedShitposts[0]?.shitpostKey ?? ''
+
+    const screen = await render(<App />)
+    await expect
+      .element(screen.getByText(`${capturedShitposts.length} shitposts`))
+      .toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /^Delete/ }).first())
+
+    await expect
+      .element(screen.getByText(`${capturedShitposts.length - 1} shitposts`))
+      .toBeInTheDocument()
+    // The fake 404s any key the API does not hold, so the count can only drop
+    // if the app sent the key of the tile that was clicked.
+    expect(
+      screen.container.querySelector(`[src="${mediaUrlFor(doomed)}"]`),
+    ).toBeNull()
+  })
+
+  it('keeps the tile and reports it when the API refuses to delete', async () => {
+    mswBrowserWorker.use(shitposts.refusesToDelete(503), ...healthyShitposts())
+    const doomed = capturedShitposts[0]?.shitpostKey ?? ''
+
+    const screen = await render(<App />)
+    await expect
+      .element(screen.getByText(`${capturedShitposts.length} shitposts`))
+      .toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /^Delete/ }).first())
+
+    await expect.element(screen.getByRole('alert')).toBeInTheDocument()
+    await expect
+      .element(screen.getByText(`${capturedShitposts.length} shitposts`))
+      .toBeInTheDocument()
+    expect(
+      screen.container.querySelector(`[src="${mediaUrlFor(doomed)}"]`),
+    ).not.toBeNull()
   })
 })

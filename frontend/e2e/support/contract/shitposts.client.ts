@@ -1,4 +1,5 @@
 import type { APIRequestContext } from '@playwright/test'
+import { shitpostPath } from '../../../src/features/vault/api/shitposts.contract.js'
 
 export type ApiResponse = {
   status: number
@@ -7,6 +8,7 @@ export type ApiResponse = {
 
 export type ShitpostsClient = {
   listShitposts(page?: { limit?: number; cursor?: string }): Promise<ApiResponse>
+  deleteShitpost(shitpostKey: string): Promise<ApiResponse>
 }
 
 /**
@@ -24,5 +26,10 @@ export const shitpostsClient = (
       },
     })
     return { status: response.status(), body: await response.json() }
+  },
+
+  async deleteShitpost(shitpostKey): Promise<ApiResponse> {
+    const response = await request.delete(`/api${shitpostPath(shitpostKey)}`)
+    return { status: response.status(), body: await response.text() }
   },
 })
